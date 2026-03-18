@@ -1,0 +1,37 @@
+# R
+.Rproj.user
+.Rhistory
+.Rdata
+.RData
+.httr-oauth
+.Renviron
+
+# Shiny
+rsconnect/
+
+# Data files
+*.rds
+*.h5
+*.h5ad
+*.mtx
+*.mtx.gz
+*.tsv.gz
+
+# Test data
+test-data/
+
+# Temporary files
+tmp_dev/
+*.tmp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
