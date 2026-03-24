@@ -4,20 +4,24 @@ mod_import_ui <- function(id) {
   tabPanel(
     "Import raw data",
     wellPanel(
-      strong("Upload a sample (Cell Ranger MEX Analysis Result Folder)"),
       fluidRow(
-        column(1, shinyDirButton(ns("folder"), "Select", title ="Select a sample folder", multiple = FALSE, class = "btn-success")),
+        column(4, strong("Upload a sample (Cell Ranger MEX Analysis Result Folder)")),
+        column(1, shinyDirButton(ns("folder"), "Select", title ="Select a sample folder", multiple = FALSE, class = "btn-success", style = "width: 100px;"))
+      ),
+      fluidRow(
         column(2, verbatimTextOutput(ns("mex"), placeholder = FALSE)),
         column(3, textOutput(ns("cell.count")))
       )
     ),
     wellPanel(
-      strong("Convert to Seurat Object"),
+      fluidRow(
+        column(4, strong("Convert to Seurat Object")),
+        column(1, actionButton(ns("convert"), "Convert", class ="btn-success", style = "width: 100px;"))
+      ),
       fluidRow(
         column(2, textInput(ns("project.name"), "Create a Sample ID", value = "")),
         column(2, numericInput(ns("min.cells"), "Cell Threshold", value = 3)),
-        column(2, numericInput(ns("min.features"), "Feature Threshold", value = 100)),
-        column(1, actionButton(ns("convert"), "Convert", class ="btn-success"))
+        column(2, numericInput(ns("min.features"), "Feature Threshold", value = 100))
       )
     ),
     wellPanel(
