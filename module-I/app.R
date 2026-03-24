@@ -32,6 +32,7 @@ load_or_install("DoubletFinder", github_url = "chris-mcginnis-ucsf/DoubletFinder
 load_or_install("plotly")
 load_or_install("glmGamPoi") #SCTransform
 load_or_install("ggpubr")
+load_or_install("shinycssloaders")
 
 options(shiny.maxRequestSize = 10 * 1024^3)
 

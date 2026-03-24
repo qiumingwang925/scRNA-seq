@@ -26,8 +26,8 @@ mod_import_ui <- function(id) {
     ),
     wellPanel(
       strong("QC Overview"),
-      plotOutput(ns("plot.raw.vln"), height = "400px", width = "1000px"),
-      plotOutput(ns("plot.raw.dst"), height = "150px", width = "1000px")
+      shinycssloaders::withSpinner(plotOutput(ns("plot.raw.vln"), height = "400px", width = "1000px")),
+      shinycssloaders::withSpinner(plotOutput(ns("plot.raw.dst"), height = "150px", width = "1000px"))
     )
   )
 }
