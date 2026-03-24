@@ -3,28 +3,27 @@ mod_import_ui <- function(id) {
   
   tabPanel(
     "Import raw data",
-    fluidRow(
-      column(10, strong("Upload a sample (Cell Ranger MEX Analysis Result Folder)"))
+    wellPanel(
+      strong("Upload a sample (Cell Ranger MEX Analysis Result Folder)"),
+      fluidRow(
+        column(1, shinyDirButton(ns("folder"), "Select", title ="Select a sample folder", multiple = FALSE, class = "btn-success")),
+        column(2, verbatimTextOutput(ns("mex"), placeholder = FALSE)),
+        column(3, textOutput(ns("cell.count")))
+      )
     ),
-    fluidRow(
-      column(1, shinyDirButton(ns("folder"), "Select", title ="Select a sample folder", multiple = FALSE, class = "btn-success")),
-      column(2, verbatimTextOutput(ns("mex"), placeholder = FALSE)),
-      column(3, textOutput(ns("cell.count")))
+    wellPanel(
+      strong("Convert to Seurat Object"),
+      fluidRow(
+        column(2, textInput(ns("project.name"), "Create a Sample ID", value = "")),
+        column(2, numericInput(ns("min.cells"), "Cell Threshold", value = 3)),
+        column(2, numericInput(ns("min.features"), "Feature Threshold", value = 100)),
+        column(1, actionButton(ns("convert"), "Convert", class ="btn-success"))
+      )
     ),
-    fluidRow(
-      column(10, strong("Convert to Seurat Object"))
-    ),
-    fluidRow(
-      column(2, textInput(ns("project.name"), "Create a Sample ID", value = "")),
-      column(2, numericInput(ns("min.cells"), "Cell Threshold", value = 3)),
-      column(2, numericInput(ns("min.features"), "Feature Threshold", value = 100)),
-      column(1, actionButton(ns("convert"), "Convert", class ="btn-success"))
-    ),
-    fluidRow(
-      column(10, plotOutput(ns("plot.raw.vln"), height = "400px", width = "1000px"))
-    ),
-    fluidRow(
-      column(10, plotOutput(ns("plot.raw.dst"), height = "150px", width = "1000px"))
+    wellPanel(
+      strong("QC Overview"),
+      plotOutput(ns("plot.raw.vln"), height = "400px", width = "1000px"),
+      plotOutput(ns("plot.raw.dst"), height = "150px", width = "1000px")
     )
   )
 }
