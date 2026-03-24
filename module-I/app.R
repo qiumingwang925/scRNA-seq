@@ -52,9 +52,10 @@ source("modules/mod_biomarker.R")
 
 
 ui <- fluidPage(
-  
+  useShinyjs(),
+
   titlePanel("scRNA-seq Analysis Platform"),
-  
+
   tabsetPanel(
     
     mod_import_ui("import"),

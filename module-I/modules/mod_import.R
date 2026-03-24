@@ -8,7 +8,7 @@ mod_import_ui <- function(id) {
     ),
     fluidRow(
       column(1, shinyDirButton(ns("folder"), "Select", title ="Select a sample folder", multiple = FALSE, class = "btn-success")),
-      column(6, verbatimTextOutput(ns("mex"), placeholder = FALSE)),
+      column(2, verbatimTextOutput(ns("mex"), placeholder = FALSE)),
       column(3, textOutput(ns("cell.count")))
     ),
     fluidRow(
@@ -34,22 +34,25 @@ mod_import_server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
+    shinyjs::disable("convert")
+
     # Setup shinyFiles
-    volumes <- shinyFiles::getVolumes()()
-    shinyDirChoose(input, 'folder', roots = volumes)
-    
+    volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
+    shinyDirChoose(input, 'folder', roots = volumes, defaultRoot = "Project")
+
     # Display selected folder name
     observe({
-      req(input$folder)
+      req(input$folder, !is.integer(input$folder))
       folder_name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
       output$mex <- renderText({ folder_name })
     })
-    
-    # Auto-update project name
+
+    # Auto-update project name and enable Convert
     observeEvent(input$folder, {
-      req(input$folder)
+      req(input$folder, !is.integer(input$folder))
       folder_name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
       updateTextInput(session, "project.name", value = folder_name)
+      shinyjs::enable("convert")
     })
     
     # Convert to Seurat object
