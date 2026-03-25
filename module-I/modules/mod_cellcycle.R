@@ -1,4 +1,7 @@
-mod_cellcycle_ui <- function(id) {
+## ABOUTME: Shiny module for cell cycle phase scoring using Seurat's CellCycleScoring.
+## ABOUTME: Supports mouse and human gene lists, displays S and G2M phase scores on UMAP.
+
+mod.cellcycle.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel("Cell Cycle",
@@ -20,7 +23,7 @@ mod_cellcycle_ui <- function(id) {
   )
 }
 
-mod_cellcycle_server <- function(id, seurat_obj_doublet) {
+mod.cellcycle.server <- function(id, seurat.obj.doublet) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -29,10 +32,10 @@ mod_cellcycle_server <- function(id, seurat_obj_doublet) {
     # 1. Process Cell Cycle Scoring
     data.cell.cycle <- eventReactive(input$cell.cycle.run, {
       # req() ensures the object from the previous module exists
-      req(seurat_obj_doublet())
+      req(seurat.obj.doublet())
       
       withProgress(message = 'Calculating Cell Cycle Scores...', value = 0.5, {
-        srt <- seurat_obj_doublet()
+        srt <- seurat.obj.doublet()
         
         # Determine gene lists based on species
         s.genes <- cc.genes.updated.2019$s.genes
@@ -77,10 +80,10 @@ mod_cellcycle_server <- function(id, seurat_obj_doublet) {
       
       # 2. Use patchwork to align horizontally
       # The '+' sign puts them side-by-side by default
-      p_combined <- p1 | p2
+      p.combined <- p1 | p2
       
       # 3. Print the combined plot
-      p_combined
+      p.combined
     }, res = 96)
     
     # 3. Download Handler
@@ -93,6 +96,6 @@ mod_cellcycle_server <- function(id, seurat_obj_doublet) {
       }
     )
     
-    return(list(seurat_obj = data.cell.cycle, completed = completed))
+    return(list(seurat.obj = data.cell.cycle, completed = completed))
   })
 }

@@ -1,4 +1,7 @@
-mod_import_ui <- function(id) {
+## ABOUTME: Shiny module for importing Cell Ranger MEX data into a Seurat object.
+## ABOUTME: Computes QC metrics (mito/ribo/hemoglobin %) and displays violin and density plots.
+
+mod.import.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel(
@@ -33,11 +36,11 @@ mod_import_ui <- function(id) {
 }
 
 
-mod_import_server <- function(id, ui_testing = FALSE) {
+mod.import.server <- function(id, ui.testing = FALSE) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    if (!ui_testing) shinyjs::disable("convert")
+    if (!ui.testing) shinyjs::disable("convert")
 
     # Setup shinyFiles
     volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
@@ -46,24 +49,24 @@ mod_import_server <- function(id, ui_testing = FALSE) {
     # Display selected folder name
     observe({
       req(input$folder, !is.integer(input$folder))
-      folder_name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
-      output$mex <- renderText({ folder_name })
+      folder.name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
+      output$mex <- renderText({ folder.name })
     })
 
-    # Track whether data has been converted
-    converted <- reactiveVal(FALSE)
+    # Track whether import step is complete
+    completed <- reactiveVal(FALSE)
 
     # Auto-update project name and enable Convert
     observeEvent(input$folder, {
       req(input$folder, !is.integer(input$folder))
-      folder_name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
-      updateTextInput(session, "project.name", value = folder_name)
+      folder.name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
+      updateTextInput(session, "project.name", value = folder.name)
       shinyjs::enable("convert")
-      converted(FALSE)
+      completed(FALSE)
     })
     
     # Convert to Seurat object
-    seurat_obj <- reactiveVal(NULL)
+    seurat.obj <- reactiveVal(NULL)
     observeEvent(input$convert, {
       req(input$folder)
       shinyjs::disable("convert")
@@ -84,21 +87,21 @@ mod_import_server <- function(id, ui_testing = FALSE) {
         srt[["percent.hb"]] <- PercentageFeatureSet(srt, pattern = "^Hb[^(P)]")
         setProgress(value = 1.0, detail = "Done")
       })
-      seurat_obj(srt)
-      converted(TRUE)
+      seurat.obj(srt)
+      completed(TRUE)
       shinyjs::enable("convert")
     })
     
     # Violin plot
     output$plot.raw.vln <- renderPlot({
-      req(converted())
-      VlnPlot(seurat_obj(), features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp", "percent.hb"), ncol = 5)
+      req(completed())
+      VlnPlot(seurat.obj(), features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp", "percent.hb"), ncol = 5)
     }, res = 96)
 
     # Density plots
     output$plot.raw.dst <- renderPlot({
-      req(converted())
-      df <- seurat_obj()@meta.data
+      req(completed())
+      df <- seurat.obj()@meta.data
       p1 <- ggplot(df, aes(x = nFeature_RNA)) + geom_density() + theme_bw()
       p2 <- ggplot(df, aes(x = nCount_RNA)) + geom_density() + theme_bw()
       p3 <- ggplot(df, aes(x = percent.mt)) + geom_density() + theme_bw()
@@ -109,10 +112,10 @@ mod_import_server <- function(id, ui_testing = FALSE) {
 
     # Total cell count
     output$cell.count <- renderText({
-      req(converted())
-      paste0("Total cell counts: ", ncol(seurat_obj()))
+      req(completed())
+      paste0("Total cell counts: ", ncol(seurat.obj()))
     })
     
-    return(list(seurat_obj = seurat_obj, converted = converted))
+    return(list(seurat.obj = seurat.obj, completed = completed))
   })
 }

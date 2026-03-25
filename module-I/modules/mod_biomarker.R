@@ -1,10 +1,13 @@
-mod_biomarker_ui <- function(id) {
+## ABOUTME: Shiny module for visualizing gene expression from uploaded biomarker CSV lists.
+## ABOUTME: Provides hierarchical gene selection (main type > sub type > gene) and UMAP feature plots.
+
+mod.biomarker.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel("Biomarker",
            fluidRow(
              column(4, strong("Upload Biomarkers (CSV)")),
-             column(1, shinyFilesButton(ns("marker_upload"), "Select", title = "Select a biomarker CSV file", multiple = FALSE, class = "btn-success", style = "width: 100px;")),
+             column(1, shinyFilesButton(ns("marker.upload"), "Select", title = "Select a biomarker CSV file", multiple = FALSE, class = "btn-success", style = "width: 100px;")),
              column(7, helpText("Expected columns: Label.main, Label.fine, Markers"))
            ),
            hr(),
@@ -21,51 +24,51 @@ mod_biomarker_ui <- function(id) {
   )
 }
 
-mod_biomarker_server <- function(id, seurat_obj_cellcyle) {
+mod.biomarker.server <- function(id, seurat.obj.cellcycle) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
     # Setup shinyFiles for CSV selection
     volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
-    shinyFileChoose(input, "marker_upload", roots = volumes, defaultRoot = "Project", filetypes = c("csv"))
+    shinyFileChoose(input, "marker.upload", roots = volumes, defaultRoot = "Project", filetypes = c("csv"))
 
     # Reactive storage for marker data
     # Defaults to the 'markers' object already in your environment
-    current_markers <- reactiveVal(markers)
+    current.markers <- reactiveVal(markers)
 
     # Handle file selection
-    observeEvent(input$marker_upload, {
-      req(input$marker_upload, !is.integer(input$marker_upload))
-      file_path <- shinyFiles::parseFilePaths(volumes, input$marker_upload)$datapath
-      req(length(file_path) > 0)
-      df <- read.csv(file_path, stringsAsFactors = FALSE)
+    observeEvent(input$marker.upload, {
+      req(input$marker.upload, !is.integer(input$marker.upload))
+      csv.path <- shinyFiles::parseFilePaths(volumes, input$marker.upload)$datapath
+      req(length(csv.path) > 0)
+      df <- read.csv(csv.path, stringsAsFactors = FALSE)
       
       # Basic validation of columns
-      required_cols <- c("Label.main", "Label.fine", "Markers")
-      if(all(required_cols %in% colnames(df))) {
-        current_markers(df)
+      required.cols <- c("Label.main", "Label.fine", "Markers")
+      if(all(required.cols %in% colnames(df))) {
+        current.markers(df)
         showNotification("Marker list updated successfully!", type = "message")
       } else {
         showNotification("Upload failed: CSV must have Label.main, Label.fine, and Markers columns.", type = "error")
       }
     })
     
-    # 3. Update Dropdowns based on the current_markers()
+    # 3. Update Dropdowns based on the current.markers()
     observe({
-      df <- current_markers()
+      df <- current.markers()
       updateSelectInput(session, "mainlabinput", choices = unique(df$Label.main))
     })
     
     observeEvent(input$mainlabinput, {
-      df <- current_markers()
-      sub_choices <- df$Label.fine[df$Label.main == input$mainlabinput]
-      updateSelectInput(session, "finelabinput", choices = unique(sub_choices))
+      df <- current.markers()
+      sub.choices <- df$Label.fine[df$Label.main == input$mainlabinput]
+      updateSelectInput(session, "finelabinput", choices = unique(sub.choices))
     })
     
     observeEvent(input$finelabinput, {
-      df <- current_markers()
-      gene_choices <- df$Markers[df$Label.fine == input$finelabinput]
-      updateSelectInput(session, "gene.input.1", choices = unique(gene_choices))
+      df <- current.markers()
+      gene.choices <- df$Markers[df$Label.fine == input$finelabinput]
+      updateSelectInput(session, "gene.input.1", choices = unique(gene.choices))
     })
     
     # 4. Gene Input Logic
@@ -76,8 +79,8 @@ mod_biomarker_server <- function(id, seurat_obj_cellcyle) {
     
     # 5. Render Plot
     output$plot.gene.input <- renderPlot({
-      req(seurat_obj_cellcyle(), geneinput())
-      srt <- seurat_obj_cellcyle()
+      req(seurat.obj.cellcycle(), geneinput())
+      srt <- seurat.obj.cellcycle()
       gene <- geneinput()
       
       if(!(gene %in% rownames(srt))) {

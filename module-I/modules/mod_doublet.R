@@ -1,4 +1,7 @@
-mod_doublet_ui <- function(id) {
+## ABOUTME: Shiny module for doublet detection and removal using DoubletFinder.
+## ABOUTME: Estimates doublet rate by assay type, runs pK optimization, and visualizes results on UMAP.
+
+mod.doublet.ui <- function(id) {
   ns <- NS(id)
   tabPanel("Doublet Removal",
            fluidRow(
@@ -29,28 +32,28 @@ mod_doublet_ui <- function(id) {
 }
 
 
-mod_doublet_server <- function(id, seurat_obj_pca, pca_dims, ui_testing = FALSE) {
+mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
-    if (!ui_testing) shinyjs::disable("dbl.remove.run")
+    if (!ui.testing) shinyjs::disable("dbl.remove.run")
 
     # --- 1. Instant Update for Doublet Rate ---
     # We use observeEvent on BOTH the assay choice and the data object
     observeEvent({
       input$dbl.assay
-      seurat_obj_pca()
+      seurat.obj.pca()
     }, {
-      req(seurat_obj_pca())
-      srt <- seurat_obj_pca()
-      n_cells <- ncol(srt)
+      req(seurat.obj.pca())
+      srt <- seurat.obj.pca()
+      n.cells <- ncol(srt)
       
-      rate_mult <- if(input$dbl.assay == "Standard v3.1") 0.8 else 0.4
-      calc_percent <- (n_cells / 1000) * rate_mult
-      final_percent <- min(max(calc_percent, 0.5), 15)
+      rate.mult <- if(input$dbl.assay == "Standard v3.1") 0.8 else 0.4
+      calc.percent <- (n.cells / 1000) * rate.mult
+      final.percent <- min(max(calc.percent, 0.5), 15)
       
-      updateNumericInput(session, "dbl.percent", value = round(final_percent, 2))
+      updateNumericInput(session, "dbl.percent", value = round(final.percent, 2))
     })
     
     # --- 2. Prep Data (UMAP) ---
@@ -59,13 +62,13 @@ mod_doublet_server <- function(id, seurat_obj_pca, pca_dims, ui_testing = FALSE)
       input$dbl.assay.run
       input$dbl.run
     }, {
-      req(seurat_obj_pca())
-      dims_to_use <- if(is.reactive(pca_dims)) pca_dims() else 20
+      req(seurat.obj.pca())
+      dims.to.use <- if(is.reactive(pca.dims)) pca.dims() else 20
       
       withProgress(message = 'Preparing UMAP...', value = 0.5, {
-        srt <- seurat_obj_pca()
+        srt <- seurat.obj.pca()
         # Only run UMAP if it hasn't been run or if we explicitly clicked Calculate
-        srt <- RunUMAP(srt, dims = 1:dims_to_use, verbose = FALSE)
+        srt <- RunUMAP(srt, dims = 1:dims.to.use, verbose = FALSE)
       })
       return(srt)
     })
@@ -74,14 +77,14 @@ mod_doublet_server <- function(id, seurat_obj_pca, pca_dims, ui_testing = FALSE)
     observeEvent(input$dbl.assay.run, {
       req(data.dbl.prep())
       srt <- data.dbl.prep()
-      dims_to_use <- if(is.reactive(pca_dims)) pca_dims() else 20
+      dims.to.use <- if(is.reactive(pca.dims)) pca.dims() else 20
       
       withProgress(message = 'Calculating optimal pK...', {
-        sweep.res.list <- paramSweep(srt, PCs = 1:dims_to_use, sct = FALSE)
+        sweep.res.list <- paramSweep(srt, PCs = 1:dims.to.use, sct = FALSE)
         sweep.stats <- summarizeSweep(sweep.res.list, GT = FALSE)
         bcmvn <- find.pK(sweep.stats)
-        optimal_pK <- as.numeric(as.character(bcmvn$pK[which.max(bcmvn$BCmetric)]))
-        updateNumericInput(session, "dbl.pK", value = optimal_pK)
+        optimal.pK <- as.numeric(as.character(bcmvn$pK[which.max(bcmvn$BCmetric)]))
+        updateNumericInput(session, "dbl.pK", value = optimal.pK)
       })
     })
     
@@ -89,23 +92,23 @@ mod_doublet_server <- function(id, seurat_obj_pca, pca_dims, ui_testing = FALSE)
     data.dbl <- eventReactive(input$dbl.run, {
       req(data.dbl.prep())
       srt <- data.dbl.prep()
-      dims_to_use <- if(is.reactive(pca_dims)) pca_dims() else 20
+      dims.to.use <- if(is.reactive(pca.dims)) pca.dims() else 20
       
       withProgress(message = 'Identifying Doublets...', {
         # Use the latest input values
         pct <- as.numeric(input$dbl.percent)
-        nExp_poi <- round((pct/100) * ncol(srt))
+        nExp.poi <- round((pct/100) * ncol(srt))
         
-        srt <- doubletFinder(srt, PCs = 1:dims_to_use, 
+        srt <- doubletFinder(srt, PCs = 1:dims.to.use, 
                              pN = input$dbl.pN, 
                              pK = input$dbl.pK, 
-                             nExp = nExp_poi, sct = FALSE)
+                             nExp = nExp.poi, sct = FALSE)
         
-        df_col <- tail(grep("DF.classifications", colnames(srt@meta.data), value = TRUE), 1)
-        pANN_col <- tail(grep("pANN", colnames(srt@meta.data), value = TRUE), 1)
+        df.col <- tail(grep("DF.classifications", colnames(srt@meta.data), value = TRUE), 1)
+        pANN.col <- tail(grep("pANN", colnames(srt@meta.data), value = TRUE), 1)
         
-        srt$doublet.class <- srt@meta.data[[df_col]]
-        srt$doublet.score <- srt@meta.data[[pANN_col]]
+        srt$doublet.class <- srt@meta.data[[df.col]]
+        srt$doublet.score <- srt@meta.data[[pANN.col]]
       })
       shinyjs::enable("dbl.remove.run")
       return(srt)
@@ -148,6 +151,6 @@ mod_doublet_server <- function(id, seurat_obj_pca, pca_dims, ui_testing = FALSE)
       paste0("Singlets remaining: ", ncol(data.dbl.final()))
     })
     
-    return(list(seurat_obj = data.dbl.final, completed = completed))
+    return(list(seurat.obj = data.dbl.final, completed = completed))
   })
 }

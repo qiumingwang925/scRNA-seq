@@ -1,12 +1,15 @@
-mod_qc_ui <- function(id) {
+## ABOUTME: Shiny module for quality control filtering of scRNA-seq data.
+## ABOUTME: Provides interactive threshold sliders and visual pass/fail classification plots.
+
+mod.qc.ui <- function(id) {
   ns <- NS(id)
   tabPanel("QC Removal",
            wellPanel(
              strong("Plot Settings"),
              fluidRow(
-               column(3, selectInput(ns("qc.matric.1"), "QC Matrix 1",
+               column(3, selectInput(ns("qc.metric.1"), "QC Matrix 1",
                                      choices = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp", "percent.hb"))),
-               column(3, selectInput(ns("qc.matric.2"), "QC Matrix 2",
+               column(3, selectInput(ns("qc.metric.2"), "QC Matrix 2",
                                      choices = c("nCount_RNA","nFeature_RNA", "percent.mt", "percent.rp", "percent.hb"))),
                column(3, selectInput(ns("qc.plot.type"), "Plot Type",
                                      choices = c("Scatter","Violin", "Density")))
@@ -42,7 +45,7 @@ mod_qc_ui <- function(id) {
 }
 
 
-mod_qc_server <- function(id, seurat_obj) {
+mod.qc.server <- function(id, seurat.obj) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -64,8 +67,8 @@ mod_qc_server <- function(id, seurat_obj) {
 
     # 1. Dynamic Slider Updates
     observe({
-      req(seurat_obj())
-      df <- seurat_obj()@meta.data
+      req(seurat.obj())
+      df <- seurat.obj()@meta.data
       
       updateSliderInput(session, "nfeature",
                         value = c(min(df$nFeature_RNA), max(df$nFeature_RNA)),
@@ -83,8 +86,8 @@ mod_qc_server <- function(id, seurat_obj) {
     
     # 2. QC Classification — triggered on Plot so user sees results before filtering
     data.qc <- eventReactive(input$qc.plot.run, {
-      req(seurat_obj())
-      srt <- seurat_obj()
+      req(seurat.obj())
+      srt <- seurat.obj()
 
       meta <- srt@meta.data %>%
         mutate(QC = case_when(
@@ -101,25 +104,25 @@ mod_qc_server <- function(id, seurat_obj) {
     })
     
     # 3. Plotting with Updated Mapping
-    plotInput.qc <- eventReactive(input$qc.plot.run, {
+    plot.input.qc <- eventReactive(input$qc.plot.run, {
       req(data.qc())
       srt <- data.qc()
       
       # Retrieve intercepts for current selection
-      get_int <- function(m) {
+      get.int <- function(m) {
         switch(m, "nFeature_RNA" = input$nfeature, "nCount_RNA" = input$ncount,
                "percent.mt" = input$mt, "percent.rp" = input$rp, "percent.hb" = input$hb)
       }
       
-      int1 <- get_int(input$qc.matric.1)
-      int2 <- get_int(input$qc.matric.2)
+      int1 <- get.int(input$qc.metric.1)
+      int2 <- get.int(input$qc.metric.2)
       
       if(input$qc.plot.type == "Scatter"){
         # Draw "To Be Filtered" first so "Selected" points render on top
         df <- srt@meta.data
         df$QC <- factor(df$QC, levels = c("To Be Filtered", "Selected"))
         df <- df[order(df$QC), ]
-        ggplot(df, aes(x = .data[[input$qc.matric.1]], y = .data[[input$qc.matric.2]], color = QC)) +
+        ggplot(df, aes(x = .data[[input$qc.metric.1]], y = .data[[input$qc.metric.2]], color = QC)) +
           geom_point(size = 1) +
           scale_color_manual(values = c("To Be Filtered" = "#d3d3d3", "Selected" = "black")) +
           geom_hline(yintercept = int2, linetype = "dashed", color = "blue") +
@@ -127,21 +130,21 @@ mod_qc_server <- function(id, seurat_obj) {
           theme_bw()
         
       } else if(input$qc.plot.type == "Violin"){
-        p1 <- VlnPlot(srt, features = input$qc.matric.1, group.by = "QC") + geom_hline(yintercept = int1, linetype = "dashed")
-        p2 <- VlnPlot(srt, features = input$qc.matric.2, group.by = "QC") + geom_hline(yintercept = int2, linetype = "dashed")
+        p1 <- VlnPlot(srt, features = input$qc.metric.1, group.by = "QC") + geom_hline(yintercept = int1, linetype = "dashed")
+        p2 <- VlnPlot(srt, features = input$qc.metric.2, group.by = "QC") + geom_hline(yintercept = int2, linetype = "dashed")
         ggpubr::ggarrange(p1, p2, ncol=2)
         
       } else {
         # Density Plots using .data[[]] instead of aes_string
-        p1 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.matric.1]], fill = QC)) + 
+        p1 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.metric.1]], fill = QC)) + 
           geom_density(alpha = 0.5) + theme_bw() + geom_vline(xintercept = int1, linetype = "dashed")
-        p2 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.matric.2]], fill = QC)) + 
+        p2 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.metric.2]], fill = QC)) + 
           geom_density(alpha = 0.5) + theme_bw() + geom_vline(xintercept = int2, linetype = "dashed")
         ggpubr::ggarrange(p1, p2, ncol=1)
       }
     })
     
-    output$plot.qc <- renderPlot({ plotInput.qc() }, res = 96)
+    output$plot.qc <- renderPlot({ plot.input.qc() }, res = 96)
 
     # Rename button to "Update Plot" after first plot render
     observeEvent(input$qc.plot.run, {
@@ -161,6 +164,6 @@ mod_qc_server <- function(id, seurat_obj) {
       paste0("Cells remaining: ", ncol(data.qc.filter()))
     })
     
-    return(list(seurat_obj = data.qc.filter, completed = completed))
+    return(list(seurat.obj = data.qc.filter, completed = completed))
   })
 }

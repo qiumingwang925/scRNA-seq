@@ -1,4 +1,7 @@
-mod_pca_ui <- function(id) {
+## ABOUTME: Shiny module for normalization and principal component analysis.
+## ABOUTME: Supports LogNormalize and SCTransform, with elbow/loading/heatmap/2D PCA plots.
+
+mod.pca.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel("PCA",
@@ -29,7 +32,7 @@ mod_pca_ui <- function(id) {
   )
 }
 
-mod_pca_server <- function(id, seurat_obj_qc) {
+mod.pca.server <- function(id, seurat.obj.qc) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -37,10 +40,10 @@ mod_pca_server <- function(id, seurat_obj_qc) {
 
     # Logic to handle the PCA computation
     data.pca <- eventReactive(input$pca.run, {
-      req(seurat_obj_qc()) # Ensure data exists from previous module
+      req(seurat.obj.qc()) # Ensure data exists from previous module
       
       # Use the object passed from the previous module
-      srt <- seurat_obj_qc()
+      srt <- seurat.obj.qc()
       
       withProgress(message = 'Running PCA...', value = 0, {
         if (input$pca.norm == "SCTransform") {
@@ -57,7 +60,7 @@ mod_pca_server <- function(id, seurat_obj_qc) {
     })
     
     # Plotting Logic
-    plotInput.pca <- eventReactive(input$pca.plot.run, {
+    plot.input.pca <- eventReactive(input$pca.plot.run, {
       req(data.pca())
       
       if (input$pca.plot.type == "PC Variance") {
@@ -72,14 +75,14 @@ mod_pca_server <- function(id, seurat_obj_qc) {
     })
     
     output$plot.pca <- renderPlot({
-      plotInput.pca()
+      plot.input.pca()
     }, res = 96)
     
     observeEvent(input$pca.filter.run, {
       completed(TRUE)
     })
 
-    return(list(seurat_obj = data.pca, completed = completed))
+    return(list(seurat.obj = data.pca, completed = completed))
     
     # Download handler
     output$download.pca <- downloadHandler(
