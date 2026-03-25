@@ -32,7 +32,9 @@ mod_qc_ui <- function(id) {
 mod_qc_server <- function(id, seurat_obj) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
+    completed <- reactiveVal(FALSE)
+
     # 1. Dynamic Slider Updates
     observe({
       req(seurat_obj())
@@ -113,6 +115,7 @@ mod_qc_server <- function(id, seurat_obj) {
     # 4. Final Filtering
     data.qc.filter <- eventReactive(input$qc.filter.run, {
       req(data.qc())
+      completed(TRUE)
       subset(data.qc(), subset = QC == 'Pass')
     })
     
@@ -122,7 +125,6 @@ mod_qc_server <- function(id, seurat_obj) {
       paste0("Cells remaining: ", ncol(data.qc.filter()))
     })
     
-    # Important: return the reactive!
-    return(data.qc.filter)
+    return(list(seurat_obj = data.qc.filter, completed = completed))
   })
 }

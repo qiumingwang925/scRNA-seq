@@ -32,7 +32,9 @@ mod_pca_ui <- function(id) {
 mod_pca_server <- function(id, seurat_obj_qc) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
+    completed <- reactiveVal(FALSE)
+
     # Logic to handle the PCA computation
     data.pca <- eventReactive(input$pca.run, {
       req(seurat_obj_qc()) # Ensure data exists from previous module
@@ -73,8 +75,11 @@ mod_pca_server <- function(id, seurat_obj_qc) {
       plotInput.pca()
     }, res = 96)
     
-    # IMPORTANT: Return the reactive Seurat object so mod_clustering can use it
-    return(data.pca)
+    observeEvent(input$pca.filter.run, {
+      completed(TRUE)
+    })
+
+    return(list(seurat_obj = data.pca, completed = completed))
     
     # Download handler
     output$download.pca <- downloadHandler(

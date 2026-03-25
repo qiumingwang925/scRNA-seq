@@ -23,7 +23,9 @@ mod_cellcycle_ui <- function(id) {
 mod_cellcycle_server <- function(id, seurat_obj_doublet) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
+    completed <- reactiveVal(FALSE)
+
     # 1. Process Cell Cycle Scoring
     data.cell.cycle <- eventReactive(input$cell.cycle.run, {
       # req() ensures the object from the previous module exists
@@ -43,11 +45,12 @@ mod_cellcycle_server <- function(id, seurat_obj_doublet) {
         }
         
         # Run Seurat scoring
-        srt <- CellCycleScoring(srt, 
-                                s.features = s.genes, 
-                                g2m.features = g2m.genes, 
+        srt <- CellCycleScoring(srt,
+                                s.features = s.genes,
+                                g2m.features = g2m.genes,
                                 set.ident = TRUE)
       })
+      completed(TRUE)
       return(srt)
     })
     
@@ -90,7 +93,6 @@ mod_cellcycle_server <- function(id, seurat_obj_doublet) {
       }
     )
     
-    # Return the processed object for the next module
-    return(data.cell.cycle)
+    return(list(seurat_obj = data.cell.cycle, completed = completed))
   })
 }

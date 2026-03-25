@@ -32,7 +32,10 @@ mod_doublet_ui <- function(id) {
 mod_doublet_server <- function(id, seurat_obj_pca, pca_dims) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
+    completed <- reactiveVal(FALSE)
+    shinyjs::disable("dbl.remove.run")
+
     # --- 1. Instant Update for Doublet Rate ---
     # We use observeEvent on BOTH the assay choice and the data object
     observeEvent({
@@ -104,9 +107,10 @@ mod_doublet_server <- function(id, seurat_obj_pca, pca_dims) {
         srt$doublet.class <- srt@meta.data[[df_col]]
         srt$doublet.score <- srt@meta.data[[pANN_col]]
       })
+      shinyjs::enable("dbl.remove.run")
       return(srt)
     })
-    
+
     # --- 5. Outputs ---
     output$dbl.table <- renderTable({
       req(data.dbl())
@@ -132,6 +136,7 @@ mod_doublet_server <- function(id, seurat_obj_pca, pca_dims) {
     # --- 6. Filtering & Return ---
     data.dbl.final <- eventReactive(input$dbl.remove.run, {
       req(data.dbl())
+      completed(TRUE)
       subset(data.dbl(), doublet.class == "Singlet")
     })
     
@@ -143,6 +148,6 @@ mod_doublet_server <- function(id, seurat_obj_pca, pca_dims) {
       paste0("Singlets remaining: ", ncol(data.dbl.final()))
     })
     
-    return(data.dbl.final)
+    return(list(seurat_obj = data.dbl.final, completed = completed))
   })
 }

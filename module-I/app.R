@@ -54,10 +54,17 @@ source("modules/mod_biomarker.R")
 
 ui <- fluidPage(
   useShinyjs(),
+  tags$head(tags$style(HTML("
+    .nav-tabs > li.disabled > a {
+      color: #ccc !important;
+      pointer-events: none !important;
+      cursor: default !important;
+    }
+  "))),
 
   titlePanel("scRNA-seq Analysis Platform"),
 
-  tabsetPanel(
+  tabsetPanel(id = "main_tabs",
     
     mod_import_ui("import"),
     
@@ -81,22 +88,58 @@ ui <- fluidPage(
 server <- function(input, output, session){
   
   seurat_obj <- reactiveVal(NULL)
-  
-  seurat_obj_import <- mod_import_server("import")
-  
-  seurat_obj_qc <- mod_qc_server("qc", seurat_obj_import)
-  
-  seurat_obj_pca <- mod_pca_server("pca", seurat_obj_qc)
-  
-  seurat_obj_doublet <- mod_doublet_server("doublet", seurat_obj_pca, reactive({ 20 }))
-  
-  seurat_obj_cellcycle <- mod_cellcycle_server("cellcycle", seurat_obj_doublet)
-  
-  #seurat_obj_annotation_singler <- mod_annotation_singler_server("annotation_singler", seurat_obj_cellcycle)
-  
-  # mod_biomarker_server("biomarker",seurat_obj_cellcycle)
-  
-  #mod_annotation_manual_server("annotation_manual", seurat_obj_cellcycle )
+
+  # Helper to enable/disable a tab by index
+  enable_tab <- function(i) {
+    shinyjs::runjs(sprintf("$('#main_tabs > li:nth-child(%d)').removeClass('disabled');", i))
+  }
+  disable_tab <- function(i) {
+    shinyjs::runjs(sprintf("$('#main_tabs > li:nth-child(%d)').addClass('disabled');", i))
+  }
+  disable_tabs <- function(indices) { for (i in indices) disable_tab(i) }
+
+  # Disable all downstream tabs on startup
+  disable_tabs(2:6)
+
+  import_result <- mod_import_server("import")
+  qc_result <- mod_qc_server("qc", import_result$seurat_obj)
+  pca_result <- mod_pca_server("pca", qc_result$seurat_obj)
+  doublet_result <- mod_doublet_server("doublet", pca_result$seurat_obj, reactive({ 20 }))
+  cellcycle_result <- mod_cellcycle_server("cellcycle", doublet_result$seurat_obj)
+
+  #seurat_obj_annotation_singler <- mod_annotation_singler_server("annotation_singler", cellcycle_result$seurat_obj)
+  # mod_biomarker_server("biomarker", cellcycle_result$seurat_obj)
+  #mod_annotation_manual_server("annotation_manual", cellcycle_result$seurat_obj)
+
+  # Progressive tab enabling: each step enables only the next tab
+  # Import complete → enable QC (tab 2), disable 3-6
+  observe({
+    if (import_result$converted()) {
+      enable_tab(2)
+    } else {
+      disable_tabs(2:6)
+    }
+  })
+
+  # QC complete → enable PCA (tab 3)
+  observe({
+    if (qc_result$completed()) { enable_tab(3) } else { disable_tabs(3:6) }
+  })
+
+  # PCA complete → enable Doublet (tab 4)
+  observe({
+    if (pca_result$completed()) { enable_tab(4) } else { disable_tabs(4:6) }
+  })
+
+  # Doublet complete → enable Cell Cycle (tab 5)
+  observe({
+    if (doublet_result$completed()) { enable_tab(5) } else { disable_tabs(5:6) }
+  })
+
+  # Cell Cycle complete → enable Biomarker (tab 6)
+  observe({
+    if (cellcycle_result$completed()) { enable_tab(6) } else { disable_tab(6) }
+  })
   
 }
 
