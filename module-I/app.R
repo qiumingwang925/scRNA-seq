@@ -63,6 +63,11 @@ ui <- fluidPage(
       pointer-events: none !important;
       cursor: default !important;
     }
+    .btn.disabled, .btn:disabled {
+      background-color: #e0e0e0 !important;
+      color: #aaa !important;
+      border-color: #d0d0d0 !important;
+    }
   "))),
 
   titlePanel("scRNA-seq Analysis Platform"),
