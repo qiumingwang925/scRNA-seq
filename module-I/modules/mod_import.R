@@ -63,20 +63,30 @@ mod_import_server <- function(id, ui_testing = FALSE) {
     })
     
     # Convert to Seurat object
-    seurat_obj <- eventReactive(input$convert, {
+    seurat_obj <- reactiveVal(NULL)
+    observeEvent(input$convert, {
       req(input$folder)
-      path <- shinyFiles::parseDirPath(volumes, input$folder)
-      srt <- CreateSeuratObject(
-        counts = Read10X(data.dir = path),
-        project = input$project.name,
-        min.cells = input$min.cells,
-        min.features = input$min.features
-      )
-      srt[["percent.mt"]] <- PercentageFeatureSet(srt, pattern = "^mt-")
-      srt[["percent.rp"]] <- PercentageFeatureSet(srt, pattern = "^Rp[sl]")
-      srt[["percent.hb"]] <- PercentageFeatureSet(srt, pattern = "^Hb[^(P)]")
+      shinyjs::disable("convert")
+      withProgress(message = "Converting to Seurat object...", value = 0, {
+        path <- shinyFiles::parseDirPath(volumes, input$folder)
+        setProgress(value = 0.2, detail = "Reading 10X data")
+        counts <- Read10X(data.dir = path)
+        setProgress(value = 0.5, detail = "Creating Seurat object")
+        srt <- CreateSeuratObject(
+          counts = counts,
+          project = input$project.name,
+          min.cells = input$min.cells,
+          min.features = input$min.features
+        )
+        setProgress(value = 0.7, detail = "Computing QC metrics")
+        srt[["percent.mt"]] <- PercentageFeatureSet(srt, pattern = "^mt-")
+        srt[["percent.rp"]] <- PercentageFeatureSet(srt, pattern = "^Rp[sl]")
+        srt[["percent.hb"]] <- PercentageFeatureSet(srt, pattern = "^Hb[^(P)]")
+        setProgress(value = 1.0, detail = "Done")
+      })
+      seurat_obj(srt)
       converted(TRUE)
-      srt
+      shinyjs::enable("convert")
     })
     
     # Violin plot

@@ -48,6 +48,20 @@ mod_qc_server <- function(id, seurat_obj) {
 
     completed <- reactiveVal(FALSE)
 
+    # Filter button starts disabled until user visualizes the data
+    shinyjs::disable("qc.filter.run")
+
+    # Disable filter button when any slider changes (plot is stale)
+    observe({
+      input$nfeature; input$ncount; input$mt; input$rp; input$hb
+      shinyjs::disable("qc.filter.run")
+    })
+
+    # Enable filter button after plot is rendered
+    observeEvent(input$qc.plot.run, {
+      shinyjs::enable("qc.filter.run")
+    })
+
     # 1. Dynamic Slider Updates
     observe({
       req(seurat_obj())
@@ -67,21 +81,19 @@ mod_qc_server <- function(id, seurat_obj) {
       updateSliderInput(session, "hb", max = ceiling(max(df$percent.hb, na.rm = TRUE)))
     })
     
-    # 2. Refined QC Classification
-    # We trigger this on Plot Run so the user can see the "Fail" red dots
+    # 2. QC Classification — triggered on Plot so user sees results before filtering
     data.qc <- eventReactive(input$qc.plot.run, {
       req(seurat_obj())
       srt <- seurat_obj()
-      
-      # Logic: Start all as Pass, then flag Fails
+
       meta <- srt@meta.data %>%
         mutate(QC = case_when(
-          percent.mt > input$mt ~ "Fail",
-          percent.rp > input$rp ~ "Fail",
-          percent.hb > input$hb ~ "Fail",
-          nFeature_RNA < input$nfeature[1] | nFeature_RNA > input$nfeature[2] ~ "Fail",
-          nCount_RNA < input$ncount[1] | nCount_RNA > input$ncount[2] ~ "Fail",
-          TRUE ~ "Pass"
+          percent.mt > input$mt ~ "To Be Filtered",
+          percent.rp > input$rp ~ "To Be Filtered",
+          percent.hb > input$hb ~ "To Be Filtered",
+          nFeature_RNA < input$nfeature[1] | nFeature_RNA > input$nfeature[2] ~ "To Be Filtered",
+          nCount_RNA < input$ncount[1] | nCount_RNA > input$ncount[2] ~ "To Be Filtered",
+          TRUE ~ "Selected"
         ))
       
       srt@meta.data$QC <- meta$QC
@@ -103,10 +115,16 @@ mod_qc_server <- function(id, seurat_obj) {
       int2 <- get_int(input$qc.matric.2)
       
       if(input$qc.plot.type == "Scatter"){
-        FeatureScatter(srt, feature1 = input$qc.matric.1, feature2 = input$qc.matric.2, group.by = "QC",
-                       cols = c("Fail" = "#F8766D", "Pass" = "grey")) +
+        # Draw "To Be Filtered" first so "Selected" points render on top
+        df <- srt@meta.data
+        df$QC <- factor(df$QC, levels = c("To Be Filtered", "Selected"))
+        df <- df[order(df$QC), ]
+        ggplot(df, aes(x = .data[[input$qc.matric.1]], y = .data[[input$qc.matric.2]], color = QC)) +
+          geom_point(size = 1) +
+          scale_color_manual(values = c("To Be Filtered" = "#d3d3d3", "Selected" = "black")) +
           geom_hline(yintercept = int2, linetype = "dashed", color = "blue") +
-          geom_vline(xintercept = int1, linetype = "dashed", color = "blue")
+          geom_vline(xintercept = int1, linetype = "dashed", color = "blue") +
+          theme_bw()
         
       } else if(input$qc.plot.type == "Violin"){
         p1 <- VlnPlot(srt, features = input$qc.matric.1, group.by = "QC") + geom_hline(yintercept = int1, linetype = "dashed")
@@ -134,7 +152,7 @@ mod_qc_server <- function(id, seurat_obj) {
     data.qc.filter <- eventReactive(input$qc.filter.run, {
       req(data.qc())
       completed(TRUE)
-      subset(data.qc(), subset = QC == 'Pass')
+      subset(data.qc(), subset = QC == 'Selected')
     })
     
     # Display count
