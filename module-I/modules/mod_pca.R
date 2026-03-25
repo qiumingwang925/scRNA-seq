@@ -5,29 +5,34 @@ mod.pca.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel("PCA",
-           fluidRow(
-             # Added ns() to all IDs below
-             column(5, radioButtons(ns("pca.norm"), "Normalization and Scaling", 
-                                    c("Log Normalization" = "LogNorm", "SCTransform"="SCTransform"), inline = TRUE)),
-             column(2, actionButton(ns("pca.run"), "Run PCA", class = "btn-success"))
-           ), 
-           fluidRow(
-             column(7, radioButtons(ns("pca.plot.type"), "Plot Type", 
-                                    c("PC Variance", "Feature Loading", "Heatmap", "2-D PCA"), inline = TRUE)),
-             column(2, actionButton(ns("pca.plot.run"), "Plot", class = "btn-success"))
+           wellPanel(
+             strong("Normalization"),
+             fluidRow(
+               column(5, radioButtons(ns("pca.norm"), "Normalization and Scaling",
+                                      c("Log Normalization" = "LogNorm", "SCTransform"="SCTransform"), inline = TRUE)),
+               column(2, actionButton(ns("pca.run"), "Run PCA", class = "btn-success"))
+             )
            ),
-           fluidRow(
-             column(7, plotOutput(ns("plot.pca"), height = "500px", width = "600px")),
-             column(3, 
-                    numericInput(ns("pca.number"), "PC Variance: Number of PCs", min = 1, max = 50, value = 20),
-                    numericInput(ns("pca.load"), "Feature Loading: PC #", min = 1, max = 50, value = 1),
-                    numericInput(ns("pca.heatmap"), "Heatmap: PC#", min = 1, max = 50, value = 1),
-                    numericInput(ns("pca.2d.1"), "2-D PCA: PC # (x-axis)", min = 1, max = 50, value = 1),
-                    numericInput(ns("pca.2d.2"), "2-D PCA: PC # (y-axis)", min = 1, max = 50, value = 2),
-                    actionButton(ns("pca.filter.run"), "Confirm PCs for Next Step", class = "btn-success"))
+           wellPanel(
+             strong("PCA Plot"),
+             fluidRow(
+               column(7, radioButtons(ns("pca.plot.type"), "Plot Type",
+                                      c("PC Variance", "Feature Loading", "Heatmap", "2-D PCA"), inline = TRUE)),
+               column(2, actionButton(ns("pca.plot.run"), "Plot", class = "btn-success"))
+             ),
+             fluidRow(
+               column(7, plotOutput(ns("plot.pca"), height = "500px", width = "600px")),
+               column(3,
+                      numericInput(ns("pca.number"), "PC Variance: Number of PCs", min = 1, max = 50, value = 20),
+                      numericInput(ns("pca.load"), "Feature Loading: PC #", min = 1, max = 50, value = 1),
+                      numericInput(ns("pca.heatmap"), "Heatmap: PC#", min = 1, max = 50, value = 1),
+                      numericInput(ns("pca.2d.1"), "2-D PCA: PC # (x-axis)", min = 1, max = 50, value = 1),
+                      numericInput(ns("pca.2d.2"), "2-D PCA: PC # (y-axis)", min = 1, max = 50, value = 2),
+                      actionButton(ns("pca.filter.run"), "Confirm PCs for Next Step", class = "btn-success"))
+             )
            ),
-           fluidRow(
-             column(2, downloadButton(ns("download.pca"), "Download Seurat Object"))
+           wellPanel(
+             downloadButton(ns("download.pca"), "Download Seurat Object")
            )
   )
 }

@@ -4,29 +4,37 @@
 mod.doublet.ui <- function(id) {
   ns <- NS(id)
   tabPanel("Doublet Removal",
-           fluidRow(
-             column(4, radioButtons(ns("dbl.assay"), "10X Genomics Assay", 
-                                    choices = c("High Throughput v3.1", "Standard v3.1"), inline = TRUE)),
-             column(4, actionButton(ns("dbl.assay.run"), "Calculate Default Parameters", class = "btn-success"))
-           ),
-           fluidRow(
-             column(2, numericInput(ns("dbl.percent"), "Doublet Rate (%)", min = 0, max = 20, value = 0, step = 0.1)),
-             column(2, numericInput(ns("dbl.pK"), "pK (Optimal)", value = 0.09, step = 0.01)),
-             column(2, numericInput(ns("dbl.pN"), "pN (Default)", value = 0.25, min = 0, max = 1, step = 0.01)),
-             column(2, actionButton(ns("dbl.run"), "Run Doublet Finder", class = "btn-success"))
-           ),
-           fluidRow(
-             column(5, plotOutput(ns("plot.dbl.umap"), height = "500px")),
-             column(4, plotOutput(ns("plot.dbl.scatter"), height = "500px")),
-             column(3, 
-                    h4("Classification Summary"),
-                    tableOutput(ns("dbl.table")), # Summary table
-                    hr(),
-                    actionButton(ns("dbl.remove.run"), "Remove Doublets", class = "btn-danger", style="width: 100%"),
-                    br(), br(),
-                    wellPanel(textOutput(ns("dbl.cell.count"))),
-                    downloadButton(ns("download.dbl"), "Download Seurat Object")
+           wellPanel(
+             strong("Assay Settings"),
+             fluidRow(
+               column(4, radioButtons(ns("dbl.assay"), "10X Genomics Assay",
+                                      choices = c("High Throughput v3.1", "Standard v3.1"), inline = TRUE)),
+               column(4, actionButton(ns("dbl.assay.run"), "Calculate Default Parameters", class = "btn-success"))
+             ),
+             fluidRow(
+               column(2, numericInput(ns("dbl.percent"), "Doublet Rate (%)", min = 0, max = 20, value = 0, step = 0.1)),
+               column(2, numericInput(ns("dbl.pK"), "pK (Optimal)", value = 0.09, step = 0.01)),
+               column(2, numericInput(ns("dbl.pN"), "pN (Default)", value = 0.25, min = 0, max = 1, step = 0.01)),
+               column(2, actionButton(ns("dbl.run"), "Run Doublet Finder", class = "btn-success"))
              )
+           ),
+           wellPanel(
+             strong("Doublet Results"),
+             fluidRow(
+               column(5, plotOutput(ns("plot.dbl.umap"), height = "500px")),
+               column(4, plotOutput(ns("plot.dbl.scatter"), height = "500px")),
+               column(3,
+                      h4("Classification Summary"),
+                      tableOutput(ns("dbl.table")),
+                      hr(),
+                      actionButton(ns("dbl.remove.run"), "Remove Doublets", class = "btn-danger", style="width: 100%"),
+                      br(), br(),
+                      wellPanel(textOutput(ns("dbl.cell.count")))
+               )
+             )
+           ),
+           wellPanel(
+             downloadButton(ns("download.dbl"), "Download Seurat Object")
            )
   )
 }

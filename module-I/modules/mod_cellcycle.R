@@ -5,20 +5,22 @@ mod.cellcycle.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel("Cell Cycle",
-           fluidRow(
-             # Added ns() to inputs
-             column(5, radioButtons(ns("cell.cycle.ref"), "Species", 
-                                    choices = c("Mouse", "Human"), inline = TRUE)),
-             column(2, actionButton(ns("cell.cycle.run"), "Run Cell Cycle", class = "btn-success"))
+           wellPanel(
+             strong("Cell Cycle Scoring"),
+             fluidRow(
+               column(5, radioButtons(ns("cell.cycle.ref"), "Species",
+                                      choices = c("Mouse", "Human"), inline = TRUE)),
+               column(2, actionButton(ns("cell.cycle.run"), "Run Cell Cycle", class = "btn-success"))
+             )
            ),
-           hr(),
-           fluidRow(
-             # Added ns() to output
-             column(12, plotOutput(ns("plot.cell.cycle"), height = "500px", width = "100%"))
+           wellPanel(
+             strong("Cell Cycle Plot"),
+             fluidRow(
+               column(12, plotOutput(ns("plot.cell.cycle"), height = "500px", width = "100%"))
+             )
            ),
-           br(),
-           fluidRow(
-             column(2, downloadButton(ns("download.cellcycle"), "Download Seurat Object"))
+           wellPanel(
+             downloadButton(ns("download.cellcycle"), "Download Seurat Object")
            )
   )
 }

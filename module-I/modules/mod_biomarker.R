@@ -5,21 +5,25 @@ mod.biomarker.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel("Biomarker",
-           fluidRow(
-             column(4, strong("Upload Biomarkers (CSV)")),
-             column(1, shinyFilesButton(ns("marker.upload"), "Select", title = "Select a biomarker CSV file", multiple = FALSE, class = "btn-success", style = "width: 100px;")),
-             column(7, helpText("Expected columns: Label.main, Label.fine, Markers"))
+           wellPanel(
+             strong("Upload Biomarkers (CSV)"),
+             fluidRow(
+               column(1, shinyFilesButton(ns("marker.upload"), "Select", title = "Select a biomarker CSV file", multiple = FALSE, class = "btn-success", style = "width: 100px;")),
+               column(7, helpText("Expected columns: Label.main, Label.fine, Markers"))
+             )
            ),
-           hr(),
-           fluidRow(
-             column(2, selectInput(ns("mainlabinput"), "Main cell type", choices = NULL)),
-             column(2, selectInput(ns("finelabinput"), "Sub cell type", choices = NULL)),
-             column(2, selectInput(ns("gene.input.1"), "Gene from list", choices = NULL)),
-             column(2, textInput(ns("gene.input.2"), "OR type gene")),
-             column(2, actionButton(ns("gene.input.run"), "Plot Expression", class = "btn-success", style="margin-top: 25px;"))
-           ),
-           fluidRow(
-             column(12, plotOutput(ns("plot.gene.input"), height = "500px"))
+           wellPanel(
+             strong("Gene Selection"),
+             fluidRow(
+               column(2, selectInput(ns("mainlabinput"), "Main cell type", choices = NULL)),
+               column(2, selectInput(ns("finelabinput"), "Sub cell type", choices = NULL)),
+               column(2, selectInput(ns("gene.input.1"), "Gene from list", choices = NULL)),
+               column(2, textInput(ns("gene.input.2"), "OR type gene")),
+               column(2, actionButton(ns("gene.input.run"), "Plot Expression", class = "btn-success", style="margin-top: 25px;"))
+             ),
+             fluidRow(
+               column(12, plotOutput(ns("plot.gene.input"), height = "500px"))
+             )
            )
   )
 }
