@@ -3,8 +3,9 @@ mod_biomarker_ui <- function(id) {
   
   tabPanel("Biomarker",
            fluidRow(
-             column(4, fileInput(ns("marker_upload"), "Upload Biomarkers (CSV)", accept = c(".csv"))),
-             column(8, helpText("Expected columns: Label.main, Label.fine, Markers"))
+             column(4, strong("Upload Biomarkers (CSV)")),
+             column(1, shinyFilesButton(ns("marker_upload"), "Select", title = "Select a biomarker CSV file", multiple = FALSE, class = "btn-success", style = "width: 100px;")),
+             column(7, helpText("Expected columns: Label.main, Label.fine, Markers"))
            ),
            hr(),
            fluidRow(
@@ -24,14 +25,20 @@ mod_biomarker_server <- function(id, seurat_obj_cellcyle) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
-    # 1. Reactive storage for marker data
+    # Setup shinyFiles for CSV selection
+    volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
+    shinyFileChoose(input, "marker_upload", roots = volumes, defaultRoot = "Project", filetypes = c("csv"))
+
+    # Reactive storage for marker data
     # Defaults to the 'markers' object already in your environment
     current_markers <- reactiveVal(markers)
-    
-    # 2. Handle File Upload
+
+    # Handle file selection
     observeEvent(input$marker_upload, {
-      req(input$marker_upload)
-      df <- read.csv(input$marker_upload$datapath, stringsAsFactors = FALSE)
+      req(input$marker_upload, !is.integer(input$marker_upload))
+      file_path <- shinyFiles::parseFilePaths(volumes, input$marker_upload)$datapath
+      req(length(file_path) > 0)
+      df <- read.csv(file_path, stringsAsFactors = FALSE)
       
       # Basic validation of columns
       required_cols <- c("Label.main", "Label.fine", "Markers")

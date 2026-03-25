@@ -50,12 +50,16 @@ mod_import_server <- function(id) {
       output$mex <- renderText({ folder_name })
     })
 
+    # Track whether data has been converted
+    converted <- reactiveVal(FALSE)
+
     # Auto-update project name and enable Convert
     observeEvent(input$folder, {
       req(input$folder, !is.integer(input$folder))
       folder_name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
       updateTextInput(session, "project.name", value = folder_name)
       shinyjs::enable("convert")
+      converted(FALSE)
     })
     
     # Convert to Seurat object
@@ -71,20 +75,19 @@ mod_import_server <- function(id) {
       srt[["percent.mt"]] <- PercentageFeatureSet(srt, pattern = "^mt-")
       srt[["percent.rp"]] <- PercentageFeatureSet(srt, pattern = "^Rp[sl]")
       srt[["percent.hb"]] <- PercentageFeatureSet(srt, pattern = "^Hb[^(P)]")
+      converted(TRUE)
       srt
     })
     
     # Violin plot
-    plot_vln <- reactive({
-      req(seurat_obj())
+    output$plot.raw.vln <- renderPlot({
+      req(converted())
       VlnPlot(seurat_obj(), features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp", "percent.hb"), ncol = 5)
-    })
-    
-    output$plot.raw.vln <- renderPlot({ plot_vln() }, res = 96)
-    
+    }, res = 96)
+
     # Density plots
-    plot_dst <- reactive({
-      req(seurat_obj())
+    output$plot.raw.dst <- renderPlot({
+      req(converted())
       df <- seurat_obj()@meta.data
       p1 <- ggplot(df, aes(x = nFeature_RNA)) + geom_density() + theme_bw()
       p2 <- ggplot(df, aes(x = nCount_RNA)) + geom_density() + theme_bw()
@@ -92,16 +95,14 @@ mod_import_server <- function(id) {
       p4 <- ggplot(df, aes(x = percent.rp)) + geom_density() + theme_bw()
       p5 <- ggplot(df, aes(x = percent.hb)) + geom_density() + theme_bw()
       ggpubr::ggarrange(p1, p2, p3, p4, p5, ncol = 5, nrow = 1)
-    })
-    
-    output$plot.raw.dst <- renderPlot({ plot_dst() }, res = 96)
-    
+    }, res = 96)
+
     # Total cell count
     output$cell.count <- renderText({
-      req(seurat_obj())
+      req(converted())
       paste0("Total cell counts: ", ncol(seurat_obj()))
     })
     
-    return(seurat_obj)
+    return(list(seurat_obj = seurat_obj, converted = converted))
   })
 }
