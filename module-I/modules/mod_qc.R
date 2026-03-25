@@ -13,7 +13,10 @@ mod_qc_ui <- function(id) {
              )
            ),
            wellPanel(
-             strong("QC Plot"),
+             fluidRow(
+               column(4, strong("QC Plot")),
+               column(1, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100px;"))
+             ),
              plotOutput(ns("plot.qc"), height = "500px", width = "700px")
            ),
            wellPanel(
@@ -28,7 +31,6 @@ mod_qc_ui <- function(id) {
                column(4, sliderInput(ns("hb"), "Hemoglobin %:", min = 0, max = 100, value = 1))
              ),
              fluidRow(
-               column(2, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100%")),
                column(2, actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class = "btn-success", style = "width: 100%")),
                column(3, textOutput(ns("qc.cell.count")))
              )
