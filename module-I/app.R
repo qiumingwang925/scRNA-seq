@@ -36,6 +36,9 @@ load_or_install("shinycssloaders")
 
 options(shiny.maxRequestSize = 10 * 1024^3)
 
+# Set to TRUE to enable all tabs and buttons for UI testing
+UI_TESTING <- FALSE
+
 # biomarker database
 #markers <- read.xlsx("data/biomarkers_mouse.xlsx")
 
@@ -98,13 +101,13 @@ server <- function(input, output, session){
   }
   disable_tabs <- function(indices) { for (i in indices) disable_tab(i) }
 
-  # Disable all downstream tabs on startup
-  disable_tabs(2:6)
+  # Disable all downstream tabs on startup (unless UI testing)
+  if (!UI_TESTING) disable_tabs(2:6)
 
-  import_result <- mod_import_server("import")
+  import_result <- mod_import_server("import", ui_testing = UI_TESTING)
   qc_result <- mod_qc_server("qc", import_result$seurat_obj)
   pca_result <- mod_pca_server("pca", qc_result$seurat_obj)
-  doublet_result <- mod_doublet_server("doublet", pca_result$seurat_obj, reactive({ 20 }))
+  doublet_result <- mod_doublet_server("doublet", pca_result$seurat_obj, reactive({ 20 }), ui_testing = UI_TESTING)
   cellcycle_result <- mod_cellcycle_server("cellcycle", doublet_result$seurat_obj)
 
   #seurat_obj_annotation_singler <- mod_annotation_singler_server("annotation_singler", cellcycle_result$seurat_obj)
@@ -112,34 +115,36 @@ server <- function(input, output, session){
   #mod_annotation_manual_server("annotation_manual", cellcycle_result$seurat_obj)
 
   # Progressive tab enabling: each step enables only the next tab
-  # Import complete → enable QC (tab 2), disable 3-6
-  observe({
-    if (import_result$converted()) {
-      enable_tab(2)
-    } else {
-      disable_tabs(2:6)
-    }
-  })
+  if (!UI_TESTING) {
+    # Import complete → enable QC (tab 2), disable 3-6
+    observe({
+      if (import_result$converted()) {
+        enable_tab(2)
+      } else {
+        disable_tabs(2:6)
+      }
+    })
 
-  # QC complete → enable PCA (tab 3)
-  observe({
-    if (qc_result$completed()) { enable_tab(3) } else { disable_tabs(3:6) }
-  })
+    # QC complete → enable PCA (tab 3)
+    observe({
+      if (qc_result$completed()) { enable_tab(3) } else { disable_tabs(3:6) }
+    })
 
-  # PCA complete → enable Doublet (tab 4)
-  observe({
-    if (pca_result$completed()) { enable_tab(4) } else { disable_tabs(4:6) }
-  })
+    # PCA complete → enable Doublet (tab 4)
+    observe({
+      if (pca_result$completed()) { enable_tab(4) } else { disable_tabs(4:6) }
+    })
 
-  # Doublet complete → enable Cell Cycle (tab 5)
-  observe({
-    if (doublet_result$completed()) { enable_tab(5) } else { disable_tabs(5:6) }
-  })
+    # Doublet complete → enable Cell Cycle (tab 5)
+    observe({
+      if (doublet_result$completed()) { enable_tab(5) } else { disable_tabs(5:6) }
+    })
 
-  # Cell Cycle complete → enable Biomarker (tab 6)
-  observe({
-    if (cellcycle_result$completed()) { enable_tab(6) } else { disable_tab(6) }
-  })
+    # Cell Cycle complete → enable Biomarker (tab 6)
+    observe({
+      if (cellcycle_result$completed()) { enable_tab(6) } else { disable_tab(6) }
+    })
+  }
   
 }
 

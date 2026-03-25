@@ -1,29 +1,40 @@
 mod_qc_ui <- function(id) {
   ns <- NS(id)
   tabPanel("QC Removal",
-           fluidRow(
-             column(2, selectInput(ns("qc.matric.1"), "QC Matrix 1",
-                                   choices = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp", "percent.hb"))),
-             column(2, selectInput(ns("qc.matric.2"), "QC Matrix 2",
-                                   choices = c("nCount_RNA","nFeature_RNA", "percent.mt", "percent.rp", "percent.hb"))),
-             column(2, selectInput(ns("qc.plot.type"), "Plot Type",
-                                   choices = c("Scatter","Violin", "Density"))),
-             column(1, actionButton(ns("qc.plot.run"), "Plot", class ="btn-success" )),
-             column(2, textOutput(ns("qc.cell.count")))
-           ),
-           fluidRow(
-             column(6, plotOutput(ns("plot.qc"), height = "500px", width = "500px")),
-             column(4,
-                    sliderInput(ns("nfeature"), "nFeature Range:", min = 0, max = 10000, value = c(0, 5000)),
-                    sliderInput(ns("ncount"), "nCount Range:", min = 0, max = 100000, value = c(0, 60000)),
-                    sliderInput(ns("mt"), "Mitochondrial %:", min = 0, max = 100, value = 10),
-                    sliderInput(ns("rp"), "Ribosomal %:", min = 0, max = 100, value = 50),
-                    sliderInput(ns("hb"), "Hemoglobin %:", min = 0, max = 100, value = 1),
-                    actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class ="btn-success" )
+           wellPanel(
+             strong("Plot Settings"),
+             fluidRow(
+               column(3, selectInput(ns("qc.matric.1"), "QC Matrix 1",
+                                     choices = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp", "percent.hb"))),
+               column(3, selectInput(ns("qc.matric.2"), "QC Matrix 2",
+                                     choices = c("nCount_RNA","nFeature_RNA", "percent.mt", "percent.rp", "percent.hb"))),
+               column(3, selectInput(ns("qc.plot.type"), "Plot Type",
+                                     choices = c("Scatter","Violin", "Density")))
              )
            ),
-           fluidRow(
-             column(2, downloadButton(ns("download.qc"), "Download Seurat Object"))
+           wellPanel(
+             strong("QC Plot"),
+             plotOutput(ns("plot.qc"), height = "500px", width = "700px")
+           ),
+           wellPanel(
+             strong("Filtering Controls"),
+             fluidRow(
+               column(4, sliderInput(ns("nfeature"), "nFeature Range:", min = 0, max = 10000, value = c(0, 5000))),
+               column(4, sliderInput(ns("ncount"), "nCount Range:", min = 0, max = 100000, value = c(0, 60000))),
+               column(4, sliderInput(ns("mt"), "Mitochondrial %:", min = 0, max = 100, value = 10))
+             ),
+             fluidRow(
+               column(4, sliderInput(ns("rp"), "Ribosomal %:", min = 0, max = 100, value = 50)),
+               column(4, sliderInput(ns("hb"), "Hemoglobin %:", min = 0, max = 100, value = 1))
+             ),
+             fluidRow(
+               column(2, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100%")),
+               column(2, actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class = "btn-success", style = "width: 100%")),
+               column(3, textOutput(ns("qc.cell.count")))
+             )
+           ),
+           wellPanel(
+             downloadButton(ns("download.qc"), "Download Seurat Object")
            )
   )
 }
@@ -111,6 +122,11 @@ mod_qc_server <- function(id, seurat_obj) {
     })
     
     output$plot.qc <- renderPlot({ plotInput.qc() }, res = 96)
+
+    # Rename button to "Update Plot" after first plot render
+    observeEvent(input$qc.plot.run, {
+      updateActionButton(session, "qc.plot.run", label = "Update Plot")
+    }, once = TRUE)
     
     # 4. Final Filtering
     data.qc.filter <- eventReactive(input$qc.filter.run, {

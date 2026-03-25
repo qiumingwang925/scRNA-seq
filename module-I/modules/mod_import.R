@@ -33,11 +33,11 @@ mod_import_ui <- function(id) {
 }
 
 
-mod_import_server <- function(id) {
+mod_import_server <- function(id, ui_testing = FALSE) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
-    shinyjs::disable("convert")
+
+    if (!ui_testing) shinyjs::disable("convert")
 
     # Setup shinyFiles
     volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())

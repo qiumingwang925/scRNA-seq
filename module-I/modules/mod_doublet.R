@@ -29,12 +29,12 @@ mod_doublet_ui <- function(id) {
 }
 
 
-mod_doublet_server <- function(id, seurat_obj_pca, pca_dims) {
+mod_doublet_server <- function(id, seurat_obj_pca, pca_dims, ui_testing = FALSE) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
-    shinyjs::disable("dbl.remove.run")
+    if (!ui_testing) shinyjs::disable("dbl.remove.run")
 
     # --- 1. Instant Update for Doublet Rate ---
     # We use observeEvent on BOTH the assay choice and the data object
