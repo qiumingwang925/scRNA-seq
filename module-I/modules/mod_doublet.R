@@ -32,9 +32,6 @@ mod.doublet.ui <- function(id) {
                       wellPanel(textOutput(ns("dbl.cell.count")))
                )
              )
-           ),
-           wellPanel(
-             downloadButton(ns("download.dbl"), "Download Seurat Object")
            )
   )
 }

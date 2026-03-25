@@ -36,9 +36,6 @@ mod.qc.ui <- function(id) {
              fluidRow(
                column(2, actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class = "btn-success", style = "width: 100%"))
              )
-           ),
-           wellPanel(
-             downloadButton(ns("download.qc"), "Download Seurat Object")
            )
   )
 }

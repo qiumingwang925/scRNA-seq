@@ -30,9 +30,6 @@ mod.pca.ui <- function(id) {
                       numericInput(ns("pca.2d.2"), "2-D PCA: PC # (y-axis)", min = 1, max = 50, value = 2),
                       actionButton(ns("pca.filter.run"), "Confirm PCs for Next Step", class = "btn-success"))
              )
-           ),
-           wellPanel(
-             downloadButton(ns("download.pca"), "Download Seurat Object")
            )
   )
 }
@@ -88,11 +85,5 @@ mod.pca.server <- function(id, seurat.obj.qc) {
     })
 
     return(list(seurat.obj = data.pca, completed = completed))
-    
-    # Download handler
-    output$download.pca <- downloadHandler(
-      filename = function() { paste0("seurat_pca_", Sys.Date(), ".rds") },
-      content = function(file) { saveRDS(data.pca(), file) }
-    )
   })
 }
