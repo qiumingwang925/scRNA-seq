@@ -17,8 +17,8 @@ mod.qc.ui <- function(id) {
            ),
            wellPanel(
              fluidRow(
-               column(4, strong("QC Plot")),
-               column(1, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100px;"))
+               column(3, strong("QC Plot"), textOutput(ns("qc.selected.count"), inline = TRUE)),
+               column(2, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100%"))
              ),
              plotOutput(ns("plot.qc"), height = "500px", width = "700px")
            ),
@@ -34,8 +34,7 @@ mod.qc.ui <- function(id) {
                column(4, sliderInput(ns("hb"), "Hemoglobin %:", min = 0, max = 100, value = 1))
              ),
              fluidRow(
-               column(2, actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class = "btn-success", style = "width: 100%")),
-               column(3, textOutput(ns("qc.cell.count")))
+               column(2, actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class = "btn-success", style = "width: 100%"))
              )
            ),
            wellPanel(
@@ -103,20 +102,27 @@ mod.qc.server <- function(id, seurat.obj) {
       return(srt)
     })
     
-    # 3. Plotting with Updated Mapping
-    plot.input.qc <- eventReactive(input$qc.plot.run, {
+    # Selected cell count next to QC Plot title
+    output$qc.selected.count <- renderText({
+      req(data.qc())
+      n.selected <- sum(data.qc()@meta.data$QC == "Selected")
+      paste0("(", n.selected, " samples selected)")
+    })
+
+    # 3. Plot rendering
+    # Threshold lines update live with slider changes; point colors update on Plot click
+    get.int <- function(m) {
+      switch(m, "nFeature_RNA" = input$nfeature, "nCount_RNA" = input$ncount,
+             "percent.mt" = input$mt, "percent.rp" = input$rp, "percent.hb" = input$hb)
+    }
+
+    output$plot.qc <- renderPlot({
       req(data.qc())
       srt <- data.qc()
-      
-      # Retrieve intercepts for current selection
-      get.int <- function(m) {
-        switch(m, "nFeature_RNA" = input$nfeature, "nCount_RNA" = input$ncount,
-               "percent.mt" = input$mt, "percent.rp" = input$rp, "percent.hb" = input$hb)
-      }
-      
+
       int1 <- get.int(input$qc.metric.1)
       int2 <- get.int(input$qc.metric.2)
-      
+
       if(input$qc.plot.type == "Scatter"){
         # Draw "To Be Filtered" first so "Selected" points render on top
         df <- srt@meta.data
@@ -128,40 +134,35 @@ mod.qc.server <- function(id, seurat.obj) {
           geom_hline(yintercept = int2, linetype = "dashed", color = "blue") +
           geom_vline(xintercept = int1, linetype = "dashed", color = "blue") +
           theme_bw()
-        
+
       } else if(input$qc.plot.type == "Violin"){
         p1 <- VlnPlot(srt, features = input$qc.metric.1, group.by = "QC") + geom_hline(yintercept = int1, linetype = "dashed")
         p2 <- VlnPlot(srt, features = input$qc.metric.2, group.by = "QC") + geom_hline(yintercept = int2, linetype = "dashed")
         ggpubr::ggarrange(p1, p2, ncol=2)
-        
+
       } else {
-        # Density Plots using .data[[]] instead of aes_string
-        p1 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.metric.1]], fill = QC)) + 
+        p1 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.metric.1]], fill = QC)) +
           geom_density(alpha = 0.5) + theme_bw() + geom_vline(xintercept = int1, linetype = "dashed")
-        p2 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.metric.2]], fill = QC)) + 
+        p2 <- ggplot(srt@meta.data, aes(x = .data[[input$qc.metric.2]], fill = QC)) +
           geom_density(alpha = 0.5) + theme_bw() + geom_vline(xintercept = int2, linetype = "dashed")
         ggpubr::ggarrange(p1, p2, ncol=1)
       }
-    })
-    
-    output$plot.qc <- renderPlot({ plot.input.qc() }, res = 96)
+    }, res = 96)
 
     # Rename button to "Update Plot" after first plot render
     observeEvent(input$qc.plot.run, {
-      updateActionButton(session, "qc.plot.run", label = "Update Plot")
+      updateActionButton(session, "qc.plot.run", label = "Update Selection")
     }, once = TRUE)
     
     # 4. Final Filtering
-    data.qc.filter <- eventReactive(input$qc.filter.run, {
+    observeEvent(input$qc.filter.run, {
       req(data.qc())
       completed(TRUE)
-      subset(data.qc(), subset = QC == 'Selected')
     })
-    
-    # Display count
-    output$qc.cell.count <- renderText({
-      req(data.qc.filter())
-      paste0("Cells remaining: ", ncol(data.qc.filter()))
+
+    data.qc.filter <- eventReactive(input$qc.filter.run, {
+      req(data.qc())
+      subset(data.qc(), subset = QC == 'Selected')
     })
     
     return(list(seurat.obj = data.qc.filter, completed = completed))
