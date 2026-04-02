@@ -13,25 +13,31 @@ mod.pca.ui <- function(id) {
                column(2, actionButton(ns("pca.run"), "Run PCA", class = "btn-success"))
              )
            ),
-           wellPanel(
-             fluidRow(
-               column(3, strong("PCA Plot")),
-               column(5, radioButtons(ns("pca.plot.type"), "Plot Type",
-                                      c("PC Variance", "Feature Loading", "Heatmap", "2-D PCA"), inline = TRUE)),
-               column(2, actionButton(ns("pca.plot.run"), "Plot", class = "btn-success"))
+           fluidRow(class = "plot.params.row",
+             column(8,
+               wellPanel(
+                 fluidRow(
+                   column(6, strong("PCA Plot"),
+                     radioButtons(ns("pca.plot.type"), NULL,
+                                  c("PC Variance", "Feature Loading", "Heatmap", "2-D PCA"), inline = TRUE)),
+                   column(3, offset = 3, actionButton(ns("pca.plot.run"), "Plot", class = "btn-success", style = "width: 100%"))
+                 ),
+                 tags$div(class = "square.plot",
+                   plotOutput(ns("plot.pca"), width = "100%", height = "100%")
+                 )
+               )
              ),
-             plotOutput(ns("plot.pca"), height = "500px", width = "700px")
-           ),
-           wellPanel(
-             strong("PC Selection"),
-             fluidRow(
-               column(2, numericInput(ns("pca.number"), "PC Variance: Number of PCs", min = 1, max = 50, value = 20)),
-               column(2, numericInput(ns("pca.load"), "Feature Loading: PC #", min = 1, max = 50, value = 1)),
-               column(2, numericInput(ns("pca.heatmap"), "Heatmap: PC#", min = 1, max = 50, value = 1)),
-               column(2, numericInput(ns("pca.2d.1"), "2-D PCA: PC # (x-axis)", min = 1, max = 50, value = 1)),
-               column(2, numericInput(ns("pca.2d.2"), "2-D PCA: PC # (y-axis)", min = 1, max = 50, value = 2))
-             ),
-             actionButton(ns("pca.filter.run"), "Confirm PCs for Next Step", class = "btn-success")
+             column(4,
+               wellPanel(
+                 strong("PC Selection"),
+                 numericInput(ns("pca.number"), "PC Variance: Number of PCs", min = 1, max = 50, value = 20),
+                 numericInput(ns("pca.load"), "Feature Loading: PC #", min = 1, max = 50, value = 1),
+                 numericInput(ns("pca.heatmap"), "Heatmap: PC#", min = 1, max = 50, value = 1),
+                 numericInput(ns("pca.2d.1"), "2-D PCA: PC # (x-axis)", min = 1, max = 50, value = 1),
+                 numericInput(ns("pca.2d.2"), "2-D PCA: PC # (y-axis)", min = 1, max = 50, value = 2),
+                 actionButton(ns("pca.filter.run"), "Confirm PCs for Next Step", class = "btn-success", style = "width: 100%")
+               )
+             )
            )
   )
 }
@@ -43,7 +49,13 @@ mod.pca.server <- function(id, seurat.obj.qc) {
     completed <- reactiveVal(FALSE)
     pca.plotted <- reactiveVal(FALSE)
 
+    shinyjs::disable("pca.plot.run")
     shinyjs::disable("pca.filter.run")
+
+    # Enable plot button after PCA completes
+    observeEvent(data.pca(), {
+      shinyjs::enable("pca.plot.run")
+    })
 
     # Logic to handle the PCA computation
     data.pca <- eventReactive(input$pca.run, {

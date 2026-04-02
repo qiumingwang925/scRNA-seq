@@ -33,11 +33,13 @@ load.or.install("plotly")
 load.or.install("glmGamPoi") #SCTransform
 load.or.install("ggpubr")
 load.or.install("shinycssloaders")
+load.or.install("SingleR")
+load.or.install("SingleCellExperiment")
 
 options(shiny.maxRequestSize = 10 * 1024^3)
 
 # Set to TRUE to enable all tabs and buttons for UI testing
-UI.TESTING <- FALSE
+UI.TESTING <- TRUE
 
 # biomarker database
 #markers <- read.xlsx("data/biomarkers_mouse.xlsx")
@@ -50,7 +52,7 @@ source("modules/mod_qc.R")
 source("modules/mod_pca.R")
 source("modules/mod_doublet.R")
 source("modules/mod_cellcycle.R")
-#source("modules/mod_annotation_singler.R")
+source("modules/mod_annotation.R")
 source("modules/mod_biomarker.R")
 #source("modules/mod_annotation_manual.R")
 
@@ -68,6 +70,41 @@ ui <- fluidPage(
       color: #aaa !important;
       border-color: #d0d0d0 !important;
     }
+    .well {
+      background-color: #ffffff !important;
+    }
+    .plot\\.params\\.row {
+      display: flex;
+      align-items: stretch;
+    }
+    .plot\\.params\\.row > [class*='col-'] {
+      display: flex;
+    }
+    .plot\\.params\\.row .well {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .square\\.plot {
+      width: 100%;
+      max-height: 70vh;
+      display: flex;
+      justify-content: center;
+    }
+    .square\\.plot .shiny-plot-output {
+      aspect-ratio: 1 / 1;
+      height: 70vh !important;
+      width: auto !important;
+    }
+    @media (max-width: 1200px) {
+      .plot\\.params\\.row {
+        flex-direction: column;
+      }
+      .plot\\.params\\.row > [class*='col-'] {
+        width: 100%;
+      }
+    }
   "))),
 
   titlePanel("scRNA-seq Analysis Platform"),
@@ -83,12 +120,10 @@ ui <- fluidPage(
     mod.doublet.ui("doublet"),
     
     mod.cellcycle.ui("cellcycle"),
-    
-    #mod.annotation.singler.ui("annotation_singler")
-    
+
+    mod.annotation.ui("annotation"),
+
     mod.biomarker.ui("biomarker")
-    
-    #mod.annotation.manual.ui("annotation_manual")
     
   )
 )
@@ -107,17 +142,14 @@ server <- function(input, output, session){
   disable.tabs <- function(indices) { for (i in indices) disable.tab(i) }
 
   # Disable all downstream tabs on startup (unless UI testing)
-  if (!UI.TESTING) disable.tabs(2:6)
+  if (!UI.TESTING) disable.tabs(2:7)
 
   import.result <- mod.import.server("import", ui.testing = UI.TESTING)
   qc.result <- mod.qc.server("qc", import.result$seurat.obj)
   pca.result <- mod.pca.server("pca", qc.result$seurat.obj)
   doublet.result <- mod.doublet.server("doublet", pca.result$seurat.obj, reactive({ 20 }), ui.testing = UI.TESTING)
   cellcycle.result <- mod.cellcycle.server("cellcycle", doublet.result$seurat.obj)
-
-  #seurat.obj.annotation.singler <- mod.annotation.singler.server("annotation_singler", cellcycle.result$seurat.obj)
-  # mod.biomarker.server("biomarker", cellcycle.result$seurat.obj)
-  #mod.annotation.manual.server("annotation_manual", cellcycle.result$seurat.obj)
+  annotation.result <- mod.annotation.server("annotation", cellcycle.result$seurat.obj)
 
   # Progressive tab enabling: each step enables only the next tab
   if (!UI.TESTING) {
@@ -126,28 +158,33 @@ server <- function(input, output, session){
       if (import.result$completed()) {
         enable.tab(2)
       } else {
-        disable.tabs(2:6)
+        disable.tabs(2:7)
       }
     })
 
     # QC complete → enable PCA (tab 3)
     observe({
-      if (qc.result$completed()) { enable.tab(3) } else { disable.tabs(3:6) }
+      if (qc.result$completed()) { enable.tab(3) } else { disable.tabs(3:7) }
     })
 
     # PCA complete → enable Doublet (tab 4)
     observe({
-      if (pca.result$completed()) { enable.tab(4) } else { disable.tabs(4:6) }
+      if (pca.result$completed()) { enable.tab(4) } else { disable.tabs(4:7) }
     })
 
     # Doublet complete → enable Cell Cycle (tab 5)
     observe({
-      if (doublet.result$completed()) { enable.tab(5) } else { disable.tabs(5:6) }
+      if (doublet.result$completed()) { enable.tab(5) } else { disable.tabs(5:7) }
     })
 
-    # Cell Cycle complete → enable Biomarker (tab 6)
+    # Cell Cycle complete → enable Annotation (tab 6)
     observe({
-      if (cellcycle.result$completed()) { enable.tab(6) } else { disable.tab(6) }
+      if (cellcycle.result$completed()) { enable.tab(6) } else { disable.tabs(6:7) }
+    })
+
+    # Annotation complete → enable Biomarker (tab 7)
+    observe({
+      if (annotation.result$completed()) { enable.tab(7) } else { disable.tab(7) }
     })
   }
   

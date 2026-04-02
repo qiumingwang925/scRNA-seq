@@ -15,26 +15,28 @@ mod.qc.ui <- function(id) {
                                      choices = c("Scatter","Violin", "Density")))
              )
            ),
-           wellPanel(
-             fluidRow(
-               column(3, strong("QC Plot"), textOutput(ns("qc.selected.count"), inline = TRUE)),
-               column(2, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100%"))
+           fluidRow(class = "plot.params.row",
+             column(8,
+               wellPanel(
+                 fluidRow(
+                   column(6, strong("QC Plot"), textOutput(ns("qc.selected.count"), inline = TRUE)),
+                   column(3, offset = 3, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100%"))
+                 ),
+                 tags$div(class = "square.plot",
+                   plotOutput(ns("plot.qc"), width = "100%", height = "100%")
+                 )
+               )
              ),
-             plotOutput(ns("plot.qc"), height = "500px", width = "700px")
-           ),
-           wellPanel(
-             strong("Filtering Controls"),
-             fluidRow(
-               column(4, sliderInput(ns("nfeature"), "nFeature Range:", min = 0, max = 10000, value = c(0, 5000))),
-               column(4, sliderInput(ns("ncount"), "nCount Range:", min = 0, max = 100000, value = c(0, 60000))),
-               column(4, sliderInput(ns("mt"), "Mitochondrial %:", min = 0, max = 100, value = 10))
-             ),
-             fluidRow(
-               column(4, sliderInput(ns("rp"), "Ribosomal %:", min = 0, max = 100, value = 50)),
-               column(4, sliderInput(ns("hb"), "Hemoglobin %:", min = 0, max = 100, value = 1))
-             ),
-             fluidRow(
-               column(2, actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class = "btn-success", style = "width: 100%"))
+             column(4,
+               wellPanel(
+                 strong("Filtering Controls"),
+                 sliderInput(ns("nfeature"), "nFeature Range:", min = 0, max = 10000, value = c(0, 5000)),
+                 sliderInput(ns("ncount"), "nCount Range:", min = 0, max = 100000, value = c(0, 60000)),
+                 sliderInput(ns("mt"), "Mitochondrial %:", min = 0, max = 100, value = 10),
+                 sliderInput(ns("rp"), "Ribosomal %:", min = 0, max = 100, value = 50),
+                 sliderInput(ns("hb"), "Hemoglobin %:", min = 0, max = 100, value = 1),
+                 actionButton(ns("qc.filter.run"), "Filter Low Quality Cells", class = "btn-success", style = "width: 100%")
+               )
              )
            )
   )
