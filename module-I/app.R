@@ -35,11 +35,12 @@ load.or.install("ggpubr")
 load.or.install("shinycssloaders")
 load.or.install("SingleR")
 load.or.install("SingleCellExperiment")
+load.or.install("DT")
 
 options(shiny.maxRequestSize = 10 * 1024^3)
 
 # Set to TRUE to enable all tabs and buttons for UI testing
-UI.TESTING <- TRUE
+UI.TESTING <- FALSE
 
 # biomarker database
 #markers <- read.xlsx("data/biomarkers_mouse.xlsx")
@@ -52,9 +53,10 @@ source("modules/mod_qc.R")
 source("modules/mod_pca.R")
 source("modules/mod_doublet.R")
 source("modules/mod_cellcycle.R")
+source("modules/mod_annotation_singler.R")
+source("modules/mod_annotation_manual.R")
 source("modules/mod_annotation.R")
 source("modules/mod_biomarker.R")
-#source("modules/mod_annotation_manual.R")
 
 
 ui <- fluidPage(
