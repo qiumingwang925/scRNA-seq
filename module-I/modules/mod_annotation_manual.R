@@ -13,6 +13,8 @@ mod.annotation.manual.ui <- function(id) {
                      choices = c("All cells" = "full",
                                  "Selected cells (subset)" = "subset"),
                      selected = "full"),
+        numericInput(ns("subset.pcs"), "PCs for Subset UMAP:",
+                     value = 10, min = 2, max = 50, step = 1),
         actionButton(ns("run.subset.umap"), "Run UMAP on Selection",
                      class = "btn-warning", style = "width:100%"),
 
@@ -157,7 +159,7 @@ mod.annotation.manual.server <- function(id, current.obj) {
           sub <- subset(source.obj, cells = selected.barcodes)
           # Cap PCs to what the data supports: must be < min(cells, features)
           max.pcs <- min(ncol(sub), nrow(sub)) - 1
-          n.pcs <- min(10, max.pcs)
+          n.pcs <- min(input$subset.pcs, max.pcs)
           sub <- RunPCA(sub, npcs = n.pcs)
           sub <- FindNeighbors(sub, dims = 1:n.pcs)
           sub <- RunUMAP(sub, dims = 1:n.pcs)
