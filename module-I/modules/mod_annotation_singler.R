@@ -28,7 +28,7 @@ mod.annotation.singler.ui <- function(id) {
       )
     ),
     wellPanel(
-      downloadButton(ns("download.obj"), "Download Seurat Object")
+      mod.save.config.ui(ns("save"), label = "Download Seurat Object")
     )
   )
 }
@@ -95,11 +95,8 @@ mod.annotation.singler.server <- function(id, current.obj) {
       table(current.obj()[[annotation.col()]])
     })
 
-    # Download
-    output$download.obj <- downloadHandler(
-      filename = function() { paste0("seurat_singler_", Sys.Date(), ".rds") },
-      content = function(file) { saveRDS(current.obj(), file) }
-    )
+    # Export with save configuration
+    mod.save.config.server("save", current.obj)
 
     return(list(completed = completed))
   })

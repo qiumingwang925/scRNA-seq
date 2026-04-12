@@ -58,8 +58,7 @@ mod.annotation.manual.ui <- function(id) {
         actionButton(ns("apply.label"), "Apply Label to Selection",
                      class = "btn-primary", style = "width:100%"),
         br(), br(),
-        downloadButton(ns("download.obj"), "Export Annotated Object",
-                       style = "width:100%")
+        mod.save.config.ui(ns("save"), label = "Export Annotated Object")
       ),
 
       mainPanel(
@@ -324,10 +323,7 @@ mod.annotation.manual.server <- function(id, current.obj) {
     })
 
     # --- Export ---
-    output$download.obj <- downloadHandler(
-      filename = function() { paste0("annotated_", Sys.Date(), ".rds") },
-      content = function(file) { saveRDS(current.obj(), file) }
-    )
+    mod.save.config.server("save", current.obj)
 
     return(list(completed = completed))
   })
