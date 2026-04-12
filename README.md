@@ -8,8 +8,17 @@ This platform provides a modular interface for analyzing scRNA-seq data, progres
 
 ## Modules
 
-- **Module I** — Individual-sample analysis (in development)
-- **Module II–IV** — Planned
+- **Module I** — Individual-sample scRNA-seq analysis (Import, QC, PCA, Doublet Removal, Cell Cycle Scoring, Annotation)
+- **Module II** — Multi-sample integration and annotation (Upload & Merge, Integration, Benchmarking, Annotation)
+- **Module III–IV** — Planned
+
+## Project Structure
+
+- `R/` — Shared utilities used across modules (`utils.R`, `mod_save_config.R`)
+- `module-I/` — Shiny app for individual-sample analysis
+- `module-II/` — Shiny app for multi-sample integration and annotation
+- `test-data/` — Sample datasets (Cell Ranger MEX format and pre-processed Seurat .rds objects)
+- `manuscript_R/` — Standalone R scripts for manuscript figures and analysis
 
 ## Getting Started
 

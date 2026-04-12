@@ -1,12 +1,18 @@
 # scRNA-seq Analysis Platform
 
-Interactive Shiny-based platform for single-cell RNA sequencing analysis, progressing from individual-sample processing (Module I) through combined multi-sample analysis (future modules).
+Interactive Shiny-based platform for single-cell RNA sequencing analysis, progressing from individual-sample processing (Module I) through combined multi-sample analysis (Module II).
 
 ## Project Structure
 
+- `R/` — Shared code used by all modules
+  - `utils.R` — Package management (`load.or.install`) and common setup
+  - `mod_save_config.R` — Reusable Shiny sub-module for configurable Seurat object export
 - `module-I/` — Shiny app for individual-sample scRNA-seq analysis
-- `module-I/modules/` — Shiny module files (one per pipeline step)
-- `module-I/app.R` — Entry point: loads packages, defines UI layout, wires module servers
+  - `modules/` — Shiny module files (one per pipeline step)
+  - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
+- `module-II/` — Shiny app for multi-sample integration and annotation
+  - `modules/` — Shiny module files (one per pipeline step)
+  - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
 - `test-data/` — Sample datasets (Cell Ranger MEX format and pre-processed Seurat .rds objects)
 - `manuscript_R/` — Standalone R scripts for manuscript figures and analysis (not part of the Shiny app)
 
@@ -14,7 +20,7 @@ Interactive Shiny-based platform for single-cell RNA sequencing analysis, progre
 
 A modular Shiny web application implementing a linear analysis pipeline for individual scRNA-seq samples:
 
-**Import → QC Filtering → PCA → Doublet Removal → Cell Cycle Scoring → Biomarker Visualization**
+**Import → QC Filtering → PCA → Doublet Removal → Cell Cycle Scoring → Annotation**
 
 ### Active Modules (in `module-I/modules/`)
 
@@ -25,7 +31,7 @@ A modular Shiny web application implementing a linear analysis pipeline for indi
 | PCA | `mod_pca.R` | Normalization (LogNormalize or SCTransform) and PCA with elbow/loading/heatmap plots |
 | Doublet | `mod_doublet.R` | DoubletFinder-based doublet detection with UMAP visualization |
 | Cell Cycle | `mod_cellcycle.R` | Cell cycle phase scoring (mouse/human) with UMAP display |
-| Biomarker | `mod_biomarker.R` | Gene expression visualization from uploaded biomarker CSV lists |
+| Annotation | `mod_annotation.R` | Orchestrates SingleR auto-annotation and manual annotation sub-modules |
 
 ### Architecture
 
@@ -33,13 +39,36 @@ A modular Shiny web application implementing a linear analysis pipeline for indi
 - Data flows as Seurat objects through reactive returns between modules
 - Tabs are progressively enabled as each pipeline step completes
 - Input: 10X Genomics Cell Ranger MEX format
-- Output: Seurat .rds files downloadable at each step
+- Output: Seurat .rds files downloadable at each step (via shared `mod_save_config`)
+
+## Module II: Multi-Sample Integration
+
+A modular Shiny web application for integrating and annotating multiple scRNA-seq samples:
+
+**Upload & Merge → Integration → Benchmarking → Annotation**
+
+### Active Modules (in `module-II/modules/`)
+
+| Module | File | Purpose |
+|--------|------|---------|
+| Upload & Merge | `mod_upload_merge.R` | Upload multiple Seurat .rds objects, assign metadata, merge |
+| Integration | `mod_integrate.R` | Normalization (LogNormalize or SCTransform) and batch integration (CCA, RPCA, Harmony, FastMNN) |
+| Benchmarking | `mod_benchmark.R` | Integration quality metrics (ASW, LISI) with ranked comparison |
+| Annotation | `mod_annotation.R` | Interactive UMAP visualization, subset analysis, clustering, DE analysis, and manual annotation |
+
+### Architecture
+
+- Each module is a Shiny module (namespaced UI + server pair)
+- Data flows as Seurat objects through reactive returns between modules
+- Input: Pre-processed Seurat .rds objects (output of Module I)
+- Output: Annotated Seurat .rds files (via shared `mod_save_config`)
 
 ## Tech Stack
 
 - **Language:** R
 - **Framework:** Shiny
 - **Core packages:** Seurat, DoubletFinder, ggplot2, plotly, tidyverse, glmGamPoi, shinyFiles, shinyjs, ggpubr, shinycssloaders
+- **Module II additional packages:** SeuratWrappers, SeuratObject, presto, cluster, lisi, Matrix
 
 ## Naming Conventions
 
@@ -86,9 +115,11 @@ return(list(seurat.obj = <reactive>, completed = <reactiveVal>))
 
 ## Planned Modules
 
-- **Module I** — Individual-sample analysis (in development)
-- **Module II** — TBD (future)
+- **Module I** — Individual-sample analysis (active)
+- **Module II** — Multi-sample integration and annotation (active)
 - **Module III** — TBD (future)
 - **Module IV** — TBD (future)
 
 The platform is designed to progress from individual-sample processing to combined multi-sample analysis across the four modules.
+
+**Note:** Module II uses underscore-separated naming (`mod_upload_merge_ui`, `uploaded_seurat`) inherited from its original codebase, unlike Module I's dot-separated convention. New shared code in `R/` follows the dot-separated convention.
