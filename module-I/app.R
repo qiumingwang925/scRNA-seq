@@ -56,7 +56,6 @@ source("modules/mod_cellcycle.R")
 source("modules/mod_annotation_singler.R")
 source("modules/mod_annotation_manual.R")
 source("modules/mod_annotation.R")
-source("modules/mod_biomarker.R")
 
 
 ui <- fluidPage(
@@ -123,9 +122,7 @@ ui <- fluidPage(
     
     mod.cellcycle.ui("cellcycle"),
 
-    mod.annotation.ui("annotation"),
-
-    mod.biomarker.ui("biomarker")
+    mod.annotation.ui("annotation")
     
   )
 )
@@ -144,7 +141,7 @@ server <- function(input, output, session){
   disable.tabs <- function(indices) { for (i in indices) disable.tab(i) }
 
   # Disable all downstream tabs on startup (unless UI testing)
-  if (!UI.TESTING) disable.tabs(2:7)
+  if (!UI.TESTING) disable.tabs(2:6)
 
   import.result <- mod.import.server("import", ui.testing = UI.TESTING)
   qc.result <- mod.qc.server("qc", import.result$seurat.obj)
@@ -155,38 +152,33 @@ server <- function(input, output, session){
 
   # Progressive tab enabling: each step enables only the next tab
   if (!UI.TESTING) {
-    # Import complete → enable QC (tab 2), disable 3-6
+    # Import complete → enable QC (tab 2)
     observe({
       if (import.result$completed()) {
         enable.tab(2)
       } else {
-        disable.tabs(2:7)
+        disable.tabs(2:6)
       }
     })
 
     # QC complete → enable PCA (tab 3)
     observe({
-      if (qc.result$completed()) { enable.tab(3) } else { disable.tabs(3:7) }
+      if (qc.result$completed()) { enable.tab(3) } else { disable.tabs(3:6) }
     })
 
     # PCA complete → enable Doublet (tab 4)
     observe({
-      if (pca.result$completed()) { enable.tab(4) } else { disable.tabs(4:7) }
+      if (pca.result$completed()) { enable.tab(4) } else { disable.tabs(4:6) }
     })
 
     # Doublet complete → enable Cell Cycle (tab 5)
     observe({
-      if (doublet.result$completed()) { enable.tab(5) } else { disable.tabs(5:7) }
+      if (doublet.result$completed()) { enable.tab(5) } else { disable.tabs(5:6) }
     })
 
     # Cell Cycle complete → enable Annotation (tab 6)
     observe({
-      if (cellcycle.result$completed()) { enable.tab(6) } else { disable.tabs(6:7) }
-    })
-
-    # Annotation complete → enable Biomarker (tab 7)
-    observe({
-      if (annotation.result$completed()) { enable.tab(7) } else { disable.tab(7) }
+      if (cellcycle.result$completed()) { enable.tab(6) } else { disable.tab(6) }
     })
   }
   
