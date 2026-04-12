@@ -4,7 +4,7 @@
 mod.pca.ui <- function(id) {
   ns <- NS(id)
   
-  tabPanel("PCA",
+  tabPanel("PCA", value = "tab.pca",
            wellPanel(
              strong("Normalization"),
              fluidRow(
@@ -132,6 +132,6 @@ mod.pca.server <- function(id, seurat.obj.qc) {
       completed(TRUE)
     })
 
-    return(list(seurat.obj = data.pca, completed = completed))
+    return(list(seurat.obj = data.pca, completed = completed, pca.dims = reactive(input$pca.number)))
   })
 }

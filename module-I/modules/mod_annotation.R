@@ -4,7 +4,7 @@
 mod.annotation.ui <- function(id) {
   ns <- NS(id)
 
-  tabPanel("Annotation",
+  tabPanel("Annotation", value = "tab.annotation",
     tabsetPanel(id = ns("annotation.tabs"),
       tabPanel("SingleR Annotation",
         mod.annotation.singler.ui(ns("singler"))
@@ -23,16 +23,44 @@ mod.annotation.server <- function(id, seurat.obj.cellcycle) {
     # Shared Seurat object, initialized from cell cycle output
     current.obj <- reactiveVal(NULL)
 
-    # Initialize from upstream pipeline
+    # Track the upstream object so we can detect re-runs
+    prev.upstream <- reactiveVal(NULL)
+
+    # Initialize from upstream pipeline, warn on re-run if annotations exist
     observe({
       req(seurat.obj.cellcycle())
+      upstream <- seurat.obj.cellcycle()
+
       if (is.null(current.obj())) {
-        srt <- seurat.obj.cellcycle()
-        if (!"manual_annotation" %in% colnames(srt@meta.data)) {
-          srt$manual_annotation <- "Unlabeled"
+        # First time: initialize directly
+        if (!"manual_annotation" %in% colnames(upstream@meta.data)) {
+          upstream$manual_annotation <- "Unlabeled"
         }
-        current.obj(srt)
+        current.obj(upstream)
+        prev.upstream(upstream)
+      } else if (!identical(upstream, prev.upstream())) {
+        # Upstream changed: confirm before overwriting annotations
+        showModal(modalDialog(
+          title = "Upstream Data Changed",
+          "An earlier pipeline step was re-run. Accepting the new data will discard any annotations you've made in this tab.",
+          footer = tagList(
+            actionButton(ns("accept.upstream"), "Accept New Data", class = "btn-danger"),
+            modalButton("Keep Current Annotations")
+          )
+        ))
+        prev.upstream(upstream)
       }
+    })
+
+    # Apply new upstream data when user confirms
+    observeEvent(input$accept.upstream, {
+      srt <- seurat.obj.cellcycle()
+      if (!"manual_annotation" %in% colnames(srt@meta.data)) {
+        srt$manual_annotation <- "Unlabeled"
+      }
+      current.obj(srt)
+      completed(FALSE)
+      removeModal()
     })
 
     # Wire sub-modules with shared object

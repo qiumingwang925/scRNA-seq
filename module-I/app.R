@@ -132,54 +132,52 @@ server <- function(input, output, session){
   
   seurat.obj <- reactiveVal(NULL)
 
-  # Helper to enable/disable a tab by index
-  enable.tab <- function(i) {
-    shinyjs::runjs(sprintf("$('#main_tabs > li:nth-child(%d)').removeClass('disabled');", i))
+  # Pipeline tab values in order, used for progressive enable/disable
+  pipeline.tabs <- c("tab.qc", "tab.pca", "tab.doublet", "tab.cellcycle", "tab.annotation")
+
+  # Helper to enable/disable a tab by its value attribute
+  enable.tab <- function(tab.value) {
+    shinyjs::runjs(sprintf("$('#main_tabs > li > a[data-value=\"%s\"]').parent().removeClass('disabled');", tab.value))
   }
-  disable.tab <- function(i) {
-    shinyjs::runjs(sprintf("$('#main_tabs > li:nth-child(%d)').addClass('disabled');", i))
+  disable.tab <- function(tab.value) {
+    shinyjs::runjs(sprintf("$('#main_tabs > li > a[data-value=\"%s\"]').parent().addClass('disabled');", tab.value))
   }
-  disable.tabs <- function(indices) { for (i in indices) disable.tab(i) }
+  disable.tabs <- function(tab.values) { for (v in tab.values) disable.tab(v) }
 
   # Disable all downstream tabs on startup (unless UI testing)
-  if (!UI.TESTING) disable.tabs(2:6)
+  if (!UI.TESTING) disable.tabs(pipeline.tabs)
 
   import.result <- mod.import.server("import", ui.testing = UI.TESTING)
   qc.result <- mod.qc.server("qc", import.result$seurat.obj)
   pca.result <- mod.pca.server("pca", qc.result$seurat.obj)
-  doublet.result <- mod.doublet.server("doublet", pca.result$seurat.obj, reactive({ 20 }), ui.testing = UI.TESTING)
+  doublet.result <- mod.doublet.server("doublet", pca.result$seurat.obj, pca.result$pca.dims, ui.testing = UI.TESTING)
   cellcycle.result <- mod.cellcycle.server("cellcycle", doublet.result$seurat.obj)
   annotation.result <- mod.annotation.server("annotation", cellcycle.result$seurat.obj)
 
-  # Progressive tab enabling: each step enables only the next tab
+  # Progressive tab enabling: each step enables the next tab and disables all after it
   if (!UI.TESTING) {
-    # Import complete → enable QC (tab 2)
     observe({
       if (import.result$completed()) {
-        enable.tab(2)
+        enable.tab("tab.qc")
       } else {
-        disable.tabs(2:6)
+        disable.tabs(pipeline.tabs)
       }
     })
 
-    # QC complete → enable PCA (tab 3)
     observe({
-      if (qc.result$completed()) { enable.tab(3) } else { disable.tabs(3:6) }
+      if (qc.result$completed()) { enable.tab("tab.pca") } else { disable.tabs(pipeline.tabs[2:5]) }
     })
 
-    # PCA complete → enable Doublet (tab 4)
     observe({
-      if (pca.result$completed()) { enable.tab(4) } else { disable.tabs(4:6) }
+      if (pca.result$completed()) { enable.tab("tab.doublet") } else { disable.tabs(pipeline.tabs[3:5]) }
     })
 
-    # Doublet complete → enable Cell Cycle (tab 5)
     observe({
-      if (doublet.result$completed()) { enable.tab(5) } else { disable.tabs(5:6) }
+      if (doublet.result$completed()) { enable.tab("tab.cellcycle") } else { disable.tabs(pipeline.tabs[4:5]) }
     })
 
-    # Cell Cycle complete → enable Annotation (tab 6)
     observe({
-      if (cellcycle.result$completed()) { enable.tab(6) } else { disable.tab(6) }
+      if (cellcycle.result$completed()) { enable.tab("tab.annotation") } else { disable.tab("tab.annotation") }
     })
   }
   

@@ -5,7 +5,7 @@ mod.import.ui <- function(id) {
   ns <- NS(id)
   
   tabPanel(
-    "Import raw data",
+    "Import raw data", value = "tab.import",
     wellPanel(
       fluidRow(
         column(4, strong("Upload a sample (Cell Ranger MEX Analysis Result Folder)")),

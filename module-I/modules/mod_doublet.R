@@ -3,7 +3,7 @@
 
 mod.doublet.ui <- function(id) {
   ns <- NS(id)
-  tabPanel("Doublet Removal",
+  tabPanel("Doublet Removal", value = "tab.doublet",
            wellPanel(
              strong("Assay Settings"),
              fluidRow(
@@ -44,6 +44,9 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE)
     completed <- reactiveVal(FALSE)
     if (!ui.testing) shinyjs::disable("dbl.remove.run")
 
+    # Number of PCA dimensions to use for UMAP and doublet detection
+    dims.to.use <- reactive({ pca.dims() })
+
     # --- 1. Instant Update for Doublet Rate ---
     # We use observeEvent on BOTH the assay choice and the data object
     observeEvent({
@@ -68,12 +71,10 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE)
       input$dbl.run
     }, {
       req(seurat.obj.pca())
-      dims.to.use <- if(is.reactive(pca.dims)) pca.dims() else 20
-      
+
       withProgress(message = 'Preparing UMAP...', value = 0.5, {
         srt <- seurat.obj.pca()
-        # Only run UMAP if it hasn't been run or if we explicitly clicked Calculate
-        srt <- RunUMAP(srt, dims = 1:dims.to.use, verbose = FALSE)
+        srt <- RunUMAP(srt, dims = 1:dims.to.use(), verbose = FALSE)
       })
       return(srt)
     })
@@ -82,10 +83,9 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE)
     observeEvent(input$dbl.assay.run, {
       req(data.dbl.prep())
       srt <- data.dbl.prep()
-      dims.to.use <- if(is.reactive(pca.dims)) pca.dims() else 20
-      
+
       withProgress(message = 'Calculating optimal pK...', {
-        sweep.res.list <- paramSweep(srt, PCs = 1:dims.to.use, sct = FALSE)
+        sweep.res.list <- paramSweep(srt, PCs = 1:dims.to.use(), sct = FALSE)
         sweep.stats <- summarizeSweep(sweep.res.list, GT = FALSE)
         bcmvn <- find.pK(sweep.stats)
         optimal.pK <- as.numeric(as.character(bcmvn$pK[which.max(bcmvn$BCmetric)]))
@@ -97,14 +97,13 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE)
     data.dbl <- eventReactive(input$dbl.run, {
       req(data.dbl.prep())
       srt <- data.dbl.prep()
-      dims.to.use <- if(is.reactive(pca.dims)) pca.dims() else 20
-      
+
       withProgress(message = 'Identifying Doublets...', {
         # Use the latest input values
         pct <- as.numeric(input$dbl.percent)
         nExp.poi <- round((pct/100) * ncol(srt))
         
-        srt <- doubletFinder(srt, PCs = 1:dims.to.use, 
+        srt <- doubletFinder(srt, PCs = 1:dims.to.use(),
                              pN = input$dbl.pN, 
                              pK = input$dbl.pK, 
                              nExp = nExp.poi, sct = FALSE)

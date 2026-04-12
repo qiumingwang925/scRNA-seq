@@ -4,7 +4,7 @@
 mod.cellcycle.ui <- function(id) {
   ns <- NS(id)
   
-  tabPanel("Cell Cycle",
+  tabPanel("Cell Cycle", value = "tab.cellcycle",
            wellPanel(
              strong("Cell Cycle Scoring"),
              fluidRow(
@@ -20,7 +20,7 @@ mod.cellcycle.ui <- function(id) {
              )
            ),
            wellPanel(
-             downloadButton(ns("download.cellcycle"), "Download Seurat Object")
+             mod.save.config.ui(ns("save"), label = "Download Seurat Object")
            )
   )
 }
@@ -88,16 +88,9 @@ mod.cellcycle.server <- function(id, seurat.obj.doublet) {
       p.combined
     }, res = 96)
     
-    # 3. Download Handler
-    output$download.cellcycle <- downloadHandler(
-      filename = function() {
-        paste0("seurat_cellcycle_", Sys.Date(), ".rds")
-      },
-      content = function(file) {
-        saveRDS(data.cell.cycle(), file = file)
-      }
-    )
-    
+    # 3. Export with save configuration
+    mod.save.config.server("save", data.cell.cycle)
+
     return(list(seurat.obj = data.cell.cycle, completed = completed))
   })
 }

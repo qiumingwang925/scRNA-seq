@@ -3,7 +3,7 @@
 
 mod.qc.ui <- function(id) {
   ns <- NS(id)
-  tabPanel("QC Removal",
+  tabPanel("QC Removal", value = "tab.qc",
            wellPanel(
              strong("Plot Settings"),
              fluidRow(
@@ -110,6 +110,11 @@ mod.qc.server <- function(id, seurat.obj) {
 
     # 3. Plot rendering
     # Threshold lines update live with slider changes; point colors update on Plot click
+
+    # Returns threshold value(s) for a given QC metric.
+    # Range sliders (nFeature, nCount) return a 2-element vector — ggplot vectorizes
+    # geom_vline/geom_hline over it, drawing one line per bound.
+    # Percentage sliders (mt, rp, hb) return a single value.
     get.int <- function(m) {
       switch(m, "nFeature_RNA" = input$nfeature, "nCount_RNA" = input$ncount,
              "percent.mt" = input$mt, "percent.rp" = input$rp, "percent.hb" = input$hb)
