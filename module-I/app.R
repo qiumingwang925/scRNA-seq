@@ -1,25 +1,7 @@
 ## ABOUTME: Defines the root Shiny app and loads the analysis modules for the workspace.
 ## ABOUTME: Ensures required R packages are available before creating the UI and server.
 
-cran.repo <- unname(getOption("repos")["CRAN"])
-if (is.null(cran.repo) || length(cran.repo) == 0 || is.na(cran.repo) || cran.repo == "@CRAN@") {
-  options(repos = c(CRAN = "https://cloud.r-project.org"))
-}
-
-load.or.install <- function(pkg, github.url = NULL) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    if (!is.null(github.url)) {
-      if (!requireNamespace("remotes", quietly = TRUE))
-        install.packages("remotes")
-      remotes::install_github(github.url)
-    } else {
-      if (!requireNamespace("BiocManager", quietly = TRUE))
-        install.packages("BiocManager")
-      BiocManager::install(pkg)
-    }
-  }
-  library(pkg, character.only = TRUE)
-}
+source("../R/utils.R")
 
 load.or.install("shiny")
 load.or.install("shinyjs")
@@ -53,7 +35,7 @@ source("modules/mod_qc.R")
 source("modules/mod_pca.R")
 source("modules/mod_doublet.R")
 source("modules/mod_cellcycle.R")
-source("modules/mod_save_config.R")
+source("../R/mod_save_config.R")
 source("modules/mod_annotation_singler.R")
 source("modules/mod_annotation_manual.R")
 source("modules/mod_annotation.R")

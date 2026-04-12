@@ -20,9 +20,6 @@
 #devtools::install_github("immunogenomics/lisi")
 
 
-library(cluster) #ASW
-library(lisi) #LISI
-library(Matrix) #Graph LISI
 
 mod_benchmark_ui <- function(id) {
   ns <- NS(id)

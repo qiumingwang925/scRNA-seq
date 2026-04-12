@@ -11,8 +11,9 @@ mod_annotation_ui <- function(id) {
                radioButtons(ns("display_mode"), "Display UMAP from:",
                             choices = c("All cells" = "full", "Selected cells (subset)" = "subset"),
                             selected = "full"),
-               actionButton(ns("run_subset_umap"), "📊 Run UMAP on Selection", class = "btn-warning", style="width:100%"),
-               #helpText("Lasso select cells on 'All cells' UMAP first, then click Run UMAP.")
+               numericInput(ns("subset_pcs"), "PCs for Subset UMAP:",
+                            value = 10, min = 2, max = 50, step = 1),
+               actionButton(ns("run_subset_umap"), "📊 Run UMAP on Selection", class = "btn-warning", style="width:100%")
                
                hr(),
                tabsetPanel(
@@ -56,7 +57,7 @@ mod_annotation_ui <- function(id) {
                actionButton(ns("update_label"), "Apply Label to Selection", 
                             class = "btn-primary", style="width: 100%"),
                br(), br(),
-               downloadButton(ns("download_obj"), "Export Annotated Object", style="width: 100%")
+               mod.save.config.ui(ns("save"), label = "Export Annotated Object")
              ),
              
              mainPanel(
@@ -174,10 +175,12 @@ mod_annotation_server <- function(id, shared_data) {
           # safe check
           if (!red_base %in% Reductions(sub)) red_base <- "pca" 
           
-          # 6. Standard Seurat Workflow
-          # Wrap the actual math in the try block
-          sub <- FindNeighbors(sub, dims = 1:20, reduction = red_base)
-          sub <- RunUMAP(sub, dims = 1:20, reduction = red_base)
+          # Cap PCs to what the data supports: must be < min(cells, features)
+          max.pcs <- min(ncol(sub), nrow(sub)) - 1
+          n.pcs <- min(input$subset_pcs, max.pcs)
+          sub <- RunPCA(sub, npcs = n.pcs)
+          sub <- FindNeighbors(sub, dims = 1:n.pcs)
+          sub <- RunUMAP(sub, dims = 1:n.pcs)
           # 7. Update the subset reactive
           subset_obj(sub)
           # 8. Force view to subset mode
@@ -424,10 +427,7 @@ mod_annotation_server <- function(id, shared_data) {
     })
     
     # --- EXPORT ---
-    output$download_obj <- downloadHandler(
-      filename = function() { paste0("scNexus_Annotated_", Sys.Date(), ".rds") },
-      content = function(file) { saveRDS(current_obj(), file) }
-    )
+    mod.save.config.server("save", current_obj)
     
     return(current_obj)
   })
