@@ -155,9 +155,12 @@ mod.annotation.manual.server <- function(id, current.obj) {
       withProgress(message = "Calculating Subset UMAP...", value = 0, {
         tryCatch({
           sub <- subset(source.obj, cells = selected.barcodes)
-          sub <- RunPCA(sub)
-          sub <- FindNeighbors(sub, dims = 1:10)
-          sub <- RunUMAP(sub, dims = 1:10)
+          # Cap PCs to what the data supports: must be < min(cells, features)
+          max.pcs <- min(ncol(sub), nrow(sub)) - 1
+          n.pcs <- min(10, max.pcs)
+          sub <- RunPCA(sub, npcs = n.pcs)
+          sub <- FindNeighbors(sub, dims = 1:n.pcs)
+          sub <- RunUMAP(sub, dims = 1:n.pcs)
 
           subset.obj(sub)
           updateRadioButtons(session, "display.mode", selected = "subset")
