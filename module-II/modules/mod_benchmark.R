@@ -21,36 +21,36 @@
 
 
 
-mod_benchmark_ui <- function(id) {
+mod.benchmark.ui <- function(id) {
   ns <- NS(id)
   tabPanel("Benchmarking", 
            sidebarLayout(
              sidebarPanel(
                tags$h4("Evaluation Settings"),
                hr(),
-               selectInput(ns("batch_label"), "Batch Label:", choices = NULL),
-               selectInput(ns("celltype_label"), "Cell-Type Label:", choices = NULL),
-               checkboxGroupInput(ns("eval_metrics"), "Metrics:",
+               selectInput(ns("batch.label"), "Batch Label:", choices = NULL),
+               selectInput(ns("celltype.label"), "Cell-Type Label:", choices = NULL),
+               checkboxGroupInput(ns("eval.metrics"), "Metrics:",
                                   choices = c("ASW", "LISI", "GraphLISI"),
                                   selected = c("ASW", "LISI")),
                hr(),
-               actionButton(ns("run_eval"), "Compute Scores", 
+               actionButton(ns("run.eval"), "Compute Scores", 
                             class = "btn-primary btn-block", style = "color: white;")
              ),
              
              mainPanel(
                tabsetPanel(
                  tabPanel("Rank Summary", 
-                          plotOutput(ns("rank_barplot"), height = "500px"),
+                          plotOutput(ns("rank.barplot"), height = "500px"),
                           hr(),
                           tags$h4("Rank Summary"),
-                          tableOutput(ns("rank_table"))
+                          tableOutput(ns("rank.table"))
                  ),
                  tabPanel("Score Distributions", 
-                          plotOutput(ns("violin_plots"), height = "500px"),
+                          plotOutput(ns("violin.plots"), height = "500px"),
                           hr(),
                           tags$h4("Median Score Summary"),
-                          tableOutput(ns("score_table"))
+                          tableOutput(ns("score.table"))
                  )
                )
              )
@@ -58,37 +58,37 @@ mod_benchmark_ui <- function(id) {
   )
 }
 
-mod_benchmark_server <- function(id, shared_data) {
+mod.benchmark.server <- function(id, shared.data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
     # Update selectors based on metadata
     observe({
-      req(shared_data())
-      meta <- shared_data()@meta.data
-      cat_cols <- colnames(meta)[sapply(meta, function(x) is.character(x) || is.factor(x))]
+      req(shared.data())
+      meta <- shared.data()@meta.data
+      cat.cols <- colnames(meta)[sapply(meta, function(x) is.character(x) || is.factor(x))]
       
-      batch_choices <- cat_cols[grepl("batch", cat_cols, ignore.case = TRUE)]
-      ct_keywords <- "TMS|LungMap|manual|annotation|celltype"
-      celltype_choices <- cat_cols[grepl(ct_keywords, cat_cols, ignore.case = TRUE)]
+      batch.choices <- cat.cols[grepl("batch", cat.cols, ignore.case = TRUE)]
+      ct.keywords <- "TMS|LungMap|manual|annotation|celltype"
+      celltype.choices <- cat.cols[grepl(ct.keywords, cat.cols, ignore.case = TRUE)]
       
-      updateSelectInput(session, "batch_label", choices = c("None", batch_choices))
-      updateSelectInput(session, "celltype_label", choices = c("None", celltype_choices))
+      updateSelectInput(session, "batch.label", choices = c("None", batch.choices))
+      updateSelectInput(session, "celltype.label", choices = c("None", celltype.choices))
     })
     
     # --- CORE COMPUTATION LOGIC ---
-    eval_results <- eventReactive(input$run_eval, {
-      req(shared_data(), input$batch_label != "None" | input$celltype_label != "None")
-      obj <- shared_data()
+    eval.results <- eventReactive(input$run.eval, {
+      req(shared.data(), input$batch.label != "None" | input$celltype.label != "None")
+      obj <- shared.data()
       
-      all_reds <- names(obj@reductions)
-      target_reds <- all_reds[grepl("integrated|pca", all_reds) & !grepl("umap", all_reds)]
+      all.reds <- names(obj@reductions)
+      target.reds <- all.reds[grepl("integrated|pca", all.reds) & !grepl("umap", all.reds)]
       
-      detailed_scores <- data.frame() 
-      summary_stats <- data.frame()   
+      detailed.scores <- data.frame() 
+      summary.stats <- data.frame()   
       
       withProgress(message = 'Calculating Metrics...', value = 0, {
-        for(red in target_reds) {
+        for(red in target.reds) {
           #######################################
           #message("Currently evaluating: ", red)
           #emb <- Embeddings(obj, reduction = red)
@@ -103,10 +103,10 @@ mod_benchmark_server <- function(id, shared_data) {
           #dims_to_use <- min(30, ncol(emb))
           #emb <- emb[, 1:dims_to_use]
           ###################################
-          incProgress(1/length(target_reds), detail = paste("Processing", red))
+          incProgress(1/length(target.reds), detail = paste("Processing", red))
           
           # Clean Names for Plotting
-          display_name <- if(red == "pca") "Unintegrated" else {
+          display.name <- if(red == "pca") "Unintegrated" else {
             clean <- gsub("integrated\\.", "", red)
             paste0(toupper(substring(clean, 1, 1)), substring(clean, 2))
           }
@@ -114,154 +114,154 @@ mod_benchmark_server <- function(id, shared_data) {
           emb <- Embeddings(obj, reduction = red)[, 1:30]
           
           # --- 1. ASW Block ---
-          if("ASW" %in% input$eval_metrics) {
+          if("ASW" %in% input$eval.metrics) {
             
             dists <- dist(emb)
-            if(input$batch_label != "None") {
-              sw <- silhouette(as.numeric(factor(obj@meta.data[[input$batch_label]])), dists)[,3]
-              detailed_scores <- rbind(detailed_scores, data.frame(Cell=rownames(emb), Score=sw, Integration=display_name, Metric="basw"))
-              summary_stats <- rbind(summary_stats, data.frame(Integration=display_name, Method="basw", Median=median(sw)))
+            if(input$batch.label != "None") {
+              sw <- silhouette(as.numeric(factor(obj@meta.data[[input$batch.label]])), dists)[,3]
+              detailed.scores <- rbind(detailed.scores, data.frame(Cell=rownames(emb), Score=sw, Integration=display.name, Metric="basw"))
+              summary.stats <- rbind(summary.stats, data.frame(Integration=display.name, Method="basw", Median=median(sw)))
             }
-            if(input$celltype_label != "None") {
-              sw <- silhouette(as.numeric(factor(obj@meta.data[[input$celltype_label]])), dists)[,3]
-              detailed_scores <- rbind(detailed_scores, data.frame(Cell=rownames(emb), Score=sw, Integration=display_name, Metric="casw"))
-              summary_stats <- rbind(summary_stats, data.frame(Integration=display_name, Method="casw", Median=median(sw)))
+            if(input$celltype.label != "None") {
+              sw <- silhouette(as.numeric(factor(obj@meta.data[[input$celltype.label]])), dists)[,3]
+              detailed.scores <- rbind(detailed.scores, data.frame(Cell=rownames(emb), Score=sw, Integration=display.name, Metric="casw"))
+              summary.stats <- rbind(summary.stats, data.frame(Integration=display.name, Method="casw", Median=median(sw)))
             }
           }
           
           # --- 2. LISI Block ---
-          if("LISI" %in% input$eval_metrics) {
+          if("LISI" %in% input$eval.metrics) {
             
-            if(input$batch_label != "None") {
-              lisi_res <- compute_lisi(emb, obj@meta.data, input$batch_label)
-              detailed_scores <- rbind(detailed_scores, data.frame(Cell=rownames(emb), Score=lisi_res[[input$batch_label]], Integration=display_name, Metric="ilisi"))
-              summary_stats <- rbind(summary_stats, data.frame(Integration=display_name, Method="ilisi", Median=median(lisi_res[[input$batch_label]])))
+            if(input$batch.label != "None") {
+              lisi.res <- compute_lisi(emb, obj@meta.data, input$batch.label)
+              detailed.scores <- rbind(detailed.scores, data.frame(Cell=rownames(emb), Score=lisi.res[[input$batch.label]], Integration=display.name, Metric="ilisi"))
+              summary.stats <- rbind(summary.stats, data.frame(Integration=display.name, Method="ilisi", Median=median(lisi.res[[input$batch.label]])))
             }
-            if(input$celltype_label != "None") {
-              lisi_res <- compute_lisi(emb, obj@meta.data, input$celltype_label)
-              detailed_scores <- rbind(detailed_scores, data.frame(Cell=rownames(emb), Score=lisi_res[[input$celltype_label]], Integration=display_name, Metric="clisi"))
-              summary_stats <- rbind(summary_stats, data.frame(Integration=display_name, Method="clisi", Median=median(lisi_res[[input$celltype_label]])))
+            if(input$celltype.label != "None") {
+              lisi.res <- compute_lisi(emb, obj@meta.data, input$celltype.label)
+              detailed.scores <- rbind(detailed.scores, data.frame(Cell=rownames(emb), Score=lisi.res[[input$celltype.label]], Integration=display.name, Metric="clisi"))
+              summary.stats <- rbind(summary.stats, data.frame(Integration=display.name, Method="clisi", Median=median(lisi.res[[input$celltype.label]])))
             }
           }
           
           # --- 3. GraphLISI Block (High Performance Sparse) ---
-          if("GraphLISI" %in% input$eval_metrics) {
+          if("GraphLISI" %in% input$eval.metrics) {
             
-            target_suffix <- gsub("integrated\\.", "", red)
+            target.suffix <- gsub("integrated\\.", "", red)
             # --- NAME MAPPING ---
             # If the reduction is 'pca', the graph is usually just 'snn'
-            if(target_suffix == "pca") {
-              graph_name <- "snn"
+            if(target.suffix == "pca") {
+              graph.nm <- "snn"
             } else {
-              graph_name <- paste0("snn.", target_suffix)
+              graph.nm <- paste0("snn.", target.suffix)
             }
             
-            snn_matrix <- obj@graphs[[graph_name]]
+            snn.matrix <- obj@graphs[[graph.nm]]
             
             # Efficient neighbor extraction
-            neighbors <- lapply(1:ncol(snn_matrix), function(i) {
-              snn_matrix@i[(snn_matrix@p[i] + 1):snn_matrix@p[i + 1]] + 1
+            neighbors <- lapply(1:ncol(snn.matrix), function(i) {
+              snn.matrix@i[(snn.matrix@p[i] + 1):snn.matrix@p[i + 1]] + 1
             })
             
             # Helper for local diversity
-            get_isi <- function(labels_vec, n_list) {
-              sapply(n_list, function(idx) {
+            get.isi <- function(labels.vec, n.list) {
+              sapply(n.list, function(idx) {
                 if(length(idx) == 0) return(NA)
-                p <- table(labels_vec[idx]) / length(idx)
+                p <- table(labels.vec[idx]) / length(idx)
                 1 / sum(p^2)
               })
             }
             
-            if(input$batch_label != "None") {
-              scores <- get_isi(obj[[input$batch_label, drop=TRUE]], neighbors)
-              detailed_scores <- rbind(detailed_scores, data.frame(Cell=rownames(emb), Score=scores, Integration=display_name, Metric="gilisi"))
-              summary_stats <- rbind(summary_stats, data.frame(Integration=display_name, Method="gilisi", Median=median(scores, na.rm=TRUE)))
+            if(input$batch.label != "None") {
+              scores <- get.isi(obj[[input$batch.label, drop=TRUE]], neighbors)
+              detailed.scores <- rbind(detailed.scores, data.frame(Cell=rownames(emb), Score=scores, Integration=display.name, Metric="gilisi"))
+              summary.stats <- rbind(summary.stats, data.frame(Integration=display.name, Method="gilisi", Median=median(scores, na.rm=TRUE)))
             }
-            if(input$celltype_label != "None") {
-              scores <- get_isi(obj[[input$celltype_label, drop=TRUE]], neighbors)
-              detailed_scores <- rbind(detailed_scores, data.frame(Cell=rownames(emb), Score=scores, Integration=display_name, Metric="gclisi"))
-              summary_stats <- rbind(summary_stats, data.frame(Integration=display_name, Method="gclisi", Median=median(scores, na.rm=TRUE)))
+            if(input$celltype.label != "None") {
+              scores <- get.isi(obj[[input$celltype.label, drop=TRUE]], neighbors)
+              detailed.scores <- rbind(detailed.scores, data.frame(Cell=rownames(emb), Score=scores, Integration=display.name, Metric="gclisi"))
+              summary.stats <- rbind(summary.stats, data.frame(Integration=display.name, Method="gclisi", Median=median(scores, na.rm=TRUE)))
             }
           }
         }
       })
       
       # --- RANKING LOGIC ---
-      list_metrics <- unique(summary_stats$Method)
-      rank_summary <- data.frame()
+      list.metrics <- unique(summary.stats$Method)
+      rank.summary <- data.frame()
       
-      for(m in list_metrics){
-        rank_df <- summary_stats %>% filter(Method == m)
+      for(m in list.metrics){
+        rank.df <- summary.stats %>% filter(Method == m)
         # ilisi, gilisi, casw: Higher is Better. basw, clisi, gclisi: Lower is Better.
         if(m %in% c("ilisi", "gilisi", "casw")) {
-          rank_df <- rank_df %>% arrange(desc(Median))
+          rank.df <- rank.df %>% arrange(desc(Median))
         } else {
-          rank_df <- rank_df %>% arrange(Median)
+          rank.df <- rank.df %>% arrange(Median)
         }
-        rank_df$Rank <- seq(nrow(rank_df), 1) 
-        rank_summary <- rbind(rank_summary, rank_df)
+        rank.df$Rank <- seq(nrow(rank.df), 1) 
+        rank.summary <- rbind(rank.summary, rank.df)
       }
       
-      return(list(details = detailed_scores, summary = rank_summary))
+      return(list(details = detailed.scores, summary = rank.summary))
     })
     
     # --- VISUALIZATIONS ---
     
-    output$violin_plots <- renderPlot({
-      df <- eval_results()$details
+    output$violin.plots <- renderPlot({
+      df <- eval.results()$details
       req(nrow(df) > 0)
-      cols_10 <- c("#1F77B4", "#FF7F0E", "#2CA02C","#D62728","#9467BD", "#8C564B", "#E377C2","#7F7F7F", "#BCBD22", "#17BECF")
+      cols.10 <- c("#1F77B4", "#FF7F0E", "#2CA02C","#D62728","#9467BD", "#8C564B", "#E377C2","#7F7F7F", "#BCBD22", "#17BECF")
       
       ggplot(df, aes(x = Integration, y = Score, fill = Integration)) +
         geom_violin(trim = FALSE, show.legend = FALSE) +
         geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA, show.legend = FALSE) +
         facet_wrap(~Metric, scales = "free_y", ncol = 3) +
-        scale_fill_manual(values = cols_10) +
+        scale_fill_manual(values = cols.10) +
         theme_classic() +
         theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
         labs(title = "Per-cell Score Distributions", y = "Metric Score")
     })
     
-    output$rank_barplot <- renderPlot({
-      df <- eval_results()$summary
+    output$rank.barplot <- renderPlot({
+      df <- eval.results()$summary
       req(nrow(df) > 0)
       
-      df$Method_group <- ifelse(df$Method %in% c("basw", "ilisi", "gilisi"), 
+      df$Method.group <- ifelse(df$Method %in% c("basw", "ilisi", "gilisi"), 
                                 "Batch Mixing", "Cell Type Separation")
       
-      cols_6 <- c("#4E79A7","#F28E2B","#E15759","#76B7B2","#59A14F","#EDC948")
+      cols.6 <- c("#4E79A7","#F28E2B","#E15759","#76B7B2","#59A14F","#EDC948")
       
       ggplot(df, aes(x = Rank, y = Integration, fill = Method)) +
         geom_bar(stat = "identity", color = "white", linewidth = 0.2) +
-        facet_grid(. ~ Method_group) +
-        scale_fill_manual(values = cols_6) +
+        facet_grid(. ~ Method.group) +
+        scale_fill_manual(values = cols.6) +
         theme_classic() +
         labs(title = "Integration Performance Ranking",
              subtitle = "Higher Rank Score = Better Performance",
              x = "Cumulative Rank Score", y = "Integration Method")
     })
     # --- SCORE TABLE ---
-    output$score_table <- renderTable({
-      df_details <- eval_results()$details
-      req(nrow(df_details) > 0)
+    output$score.table <- renderTable({
+      df.details <- eval.results()$details
+      req(nrow(df.details) > 0)
       
-      df_details %>%
+      df.details %>%
         group_by(Integration, Metric) %>%
-        summarize(Median_Score = median(Score, na.rm = TRUE), .groups = 'drop') %>%
-        pivot_wider(names_from = Metric, values_from = Median_Score) %>%
+        summarize(Median.Score = median(Score, na.rm = TRUE), .groups = 'drop') %>%
+        pivot_wider(names_from = Metric, values_from = Median.Score) %>%
         rename(Method = Integration) %>%
         arrange(Method)
     }, digits = 3)
     
    # --- RANK TABLE ###
-    output$rank_table <- renderTable({
+    output$rank.table <- renderTable({
       # 1. Get the data
-      df_rank <- eval_results()$summary
-      req(nrow(df_rank) > 0)
+      df.rank <- eval.results()$summary
+      req(nrow(df.rank) > 0)
       
       # 2. Pivot to Wide format
       # Each integration method gets one row
-      rank_pivot <- df_rank %>%
+      rank.pivot <- df.rank %>%
         dplyr::select(Integration, Method, Rank) %>%
         tidyr::pivot_wider(
           names_from = Method, 
@@ -271,20 +271,20 @@ mod_benchmark_server <- function(id, shared_data) {
       # 3. Calculate Total Score safely
       # 'across(where(is.numeric))' automatically ignores the 'Integration' text column
       # and works perfectly whether you have 1 metric or 6 metrics.
-      rank_pivot <- rank_pivot %>%
-        mutate(Total_Score = rowSums(across(where(is.numeric)), na.rm = TRUE)) %>%
-        arrange(desc(Total_Score))
+      rank.pivot <- rank.pivot %>%
+        mutate(Total.Score = rowSums(across(where(is.numeric)), na.rm = TRUE)) %>%
+        arrange(desc(Total.Score))
       
       # 4. Final Column Ordering
       # any_of() ensures that if a metric wasn't calculated, the code doesn't break
-      rank_pivot <- rank_pivot %>%
+      rank.pivot <- rank.pivot %>%
         dplyr::select(
           Integration, 
           any_of(c("basw", "ilisi", "gilisi", "casw", "clisi", "gclisi")), 
-          Total_Score
+          Total.Score
         ) %>%
         rename(Method = Integration)
-      return(rank_pivot)
+      return(rank.pivot)
     }, digits = 0)
     
   })

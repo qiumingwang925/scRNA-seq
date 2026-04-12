@@ -1,20 +1,20 @@
 # UI Function
-mod_upload_merge_ui <- function(id) {
+mod.upload.merge.ui <- function(id) {
   ns <- NS(id)
   tabPanel("Upload & Merge",
            sidebarLayout(
              sidebarPanel(
-               fileInput(ns("file_input"), "Upload Seurat Objects (.rds)", 
+               fileInput(ns("file.input"), "Upload Seurat Objects (.rds)", 
                          multiple = TRUE, accept = ".rds"),
                hr(),
-               actionButton(ns("merge_btn"), "Merge Objects", class = "btn-primary"),
+               actionButton(ns("merge.btn"), "Merge Objects", class = "btn-primary"),
                #br(), br(),
                #verbatimTextOutput(ns("status"))
              ),
              mainPanel(
                h4("Metadata Assignment"),
                helpText("Double-click cells to edit Batch and Group names."),
-               DT::DTOutput(ns("meta_table")),
+               DT::DTOutput(ns("meta.table")),
                br(), br(),
                h4("Merge Status"),
                verbatimTextOutput(ns("status"))
@@ -24,49 +24,49 @@ mod_upload_merge_ui <- function(id) {
 }
 
 # Server Function
-mod_upload_merge_server <- function(id) {
+mod.upload.merge.server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
     # This reactiveVal stores the user-editable metadata
-    meta_df <- reactiveVal(NULL)
+    meta.df <- reactiveVal(NULL)
     
     # A. When files are uploaded, generate the initial table
-    observeEvent(input$file_input, {
+    observeEvent(input$file.input, {
       df <- data.frame(
-        File_Name = input$file_input$name,
-        Batch = paste0("Batch_", 1:nrow(input$file_input)),
+        File.Name = input$file.input$name,
+        Batch = paste0("Batch.", 1:nrow(input$file.input)),
         Group = "Control",
         stringsAsFactors = FALSE
       )
-      meta_df(df)
+      meta.df(df)
     })
     
     # B. Render the editable table
-    output$meta_table <- DT::renderDT({
-      req(meta_df())
-      DT::datatable(meta_df(), editable = 'cell', rownames = FALSE, 
+    output$meta.table <- DT::renderDT({
+      req(meta.df())
+      DT::datatable(meta.df(), editable = 'cell', rownames = FALSE, 
                     options = list(dom = 't', paging = FALSE))
     })
     
     # C. Critical: Save the edits the user makes in the UI
-    observeEvent(input$meta_table_cell_edit, {
-      info <- input$meta_table_cell_edit
-      updated_df <- meta_df()
+    observeEvent(input$meta.table_cell_edit, {
+      info <- input$meta.table_cell_edit
+      updated.df <- meta.df()
       # info$col + 1 because JS is 0-indexed and R is 1-indexed
-      updated_df[info$row, info$col + 1] <- info$value
-      meta_df(updated_df)
+      updated.df[info$row, info$col + 1] <- info$value
+      meta.df(updated.df)
     })
     
     # D. The Merge Logic
-    merge_data <- eventReactive(input$merge_btn, {
-      req(input$file_input, meta_df())
+    merge.data <- eventReactive(input$merge.btn, {
+      req(input$file.input, meta.df())
       
-      files <- input$file_input$datapath
-      meta <- meta_df()
+      files <- input$file.input$datapath
+      meta <- meta.df()
       
       # Load and annotate each object with the custom table values
-      list_of_objects <- lapply(1:length(files), function(i) {
+      list.of.objects <- lapply(1:length(files), function(i) {
         obj <- readRDS(files[i])
         
         # Add the custom metadata from the table
@@ -78,25 +78,25 @@ mod_upload_merge_server <- function(id) {
       })
       
       # Combine using Seurat's merge function
-      if(length(list_of_objects) > 1) {
-        merge_obj <- merge(
-          x = list_of_objects[[1]], 
-          y = list_of_objects[-1], 
+      if(length(list.of.objects) > 1) {
+        merge.obj <- merge(
+          x = list.of.objects[[1]], 
+          y = list.of.objects[-1], 
           add.cell.ids = meta$Batch # Use your custom batch names as prefixes
         )
       } else {
-        merge_obj <- list_of_objects[[1]]
+        merge.obj <- list.of.objects[[1]]
       }
       
       # Essential for Seurat v5 to prevent layer errors later
-      merge_obj <- JoinLayers(merge_obj)
+      merge.obj <- JoinLayers(merge.obj)
       
-      return(merge_obj)
+      return(merge.obj)
     })
     
     output$status <- renderPrint({
-      req(merge_data())
-      obj <- merge_data()
+      req(merge.data())
+      obj <- merge.data()
       
       cat("--- Merge Successful ---\n")
       cat("Total Cells:   ", ncol(obj), "\n")
@@ -120,6 +120,6 @@ mod_upload_merge_server <- function(id) {
       print(obj)
     })
     
-    return(merge_data)
+    return(merge.data)
   })
 }

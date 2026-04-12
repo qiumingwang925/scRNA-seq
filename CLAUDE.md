@@ -122,4 +122,3 @@ return(list(seurat.obj = <reactive>, completed = <reactiveVal>))
 
 The platform is designed to progress from individual-sample processing to combined multi-sample analysis across the four modules.
 
-**Note:** Module II uses underscore-separated naming (`mod_upload_merge_ui`, `uploaded_seurat`) inherited from its original codebase, unlike Module I's dot-separated convention. New shared code in `R/` follows the dot-separated convention.

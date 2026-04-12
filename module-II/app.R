@@ -30,18 +30,18 @@ source("modules/mod_annotation.R")
 ui <- fluidPage(
   titlePanel("scNexus-Integrate"),
   tabsetPanel(
-    mod_upload_merge_ui("upload_merge"),
-    mod_integrate_ui("integrate"),
-    mod_benchmark_ui("benchmark"),
-    mod_annotation_ui("annotation")
+    mod.upload.merge.ui("upload.merge"),
+    mod.integrate.ui("integrate"),
+    mod.benchmark.ui("benchmark"),
+    mod.annotation.ui("annotation")
   )
 )
 
 server <- function(input, output, session) {
-  uploaded_seurat <- mod_upload_merge_server("upload_merge")
-  processed_seurat <- mod_integrate_server("integrate", shared_data = uploaded_seurat)
-  mod_benchmark_server("benchmark", shared_data = processed_seurat)
-  annotated_seurat <- mod_annotation_server("annotation", shared_data = processed_seurat)
+  uploaded.seurat <- mod.upload.merge.server("upload.merge")
+  processed.seurat <- mod.integrate.server("integrate", shared.data = uploaded.seurat)
+  mod.benchmark.server("benchmark", shared.data = processed.seurat)
+  annotated.seurat <- mod.annotation.server("annotation", shared.data = processed.seurat)
 }
 
 shinyApp(ui, server)
