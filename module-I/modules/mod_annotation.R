@@ -31,14 +31,17 @@ mod.annotation.server <- function(id, seurat.obj.cellcycle) {
       req(seurat.obj.cellcycle())
       upstream <- seurat.obj.cellcycle()
 
-      if (is.null(current.obj())) {
+      # isolate() prevents this observe from re-triggering when we set
+      # current.obj or prev.upstream below — it should only fire when
+      # seurat.obj.cellcycle() changes.
+      if (is.null(isolate(current.obj()))) {
         # First time: initialize directly
         if (!"manual_annotation" %in% colnames(upstream@meta.data)) {
           upstream$manual_annotation <- "Unlabeled"
         }
         current.obj(upstream)
         prev.upstream(upstream)
-      } else if (!identical(upstream, prev.upstream())) {
+      } else if (!identical(upstream, isolate(prev.upstream()))) {
         # Upstream changed: confirm before overwriting annotations
         showModal(modalDialog(
           title = "Upstream Data Changed",
