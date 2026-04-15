@@ -114,51 +114,58 @@ mod.integrate.server <- function(id, shared.data) {
           umap.name <- paste0("umap.", tolower(m))
           
           obj <- tryCatch({
-            # --- YOUR SPECIFIC INTEGRATION LOGIC ---
             if (input$norm.method == "SCT") {
               obj <- IntegrateLayers(
-                object = obj, 
+                object = obj,
                 method = method.map[[m]],
-                orig.reduction = "pca", 
+                orig.reduction = "pca",
                 new.reduction = red.name,
                 assay = target.assay,
                 normalization.method = "SCT",
                 verbose = FALSE
               )
             } else {
-              # LogNormalize path: normalization.method is omitted as per your discovery
               obj <- IntegrateLayers(
-                object = obj, 
+                object = obj,
                 method = method.map[[m]],
-                orig.reduction = "pca", 
+                orig.reduction = "pca",
                 new.reduction = red.name,
                 assay = target.assay,
                 verbose = FALSE
               )
             }
-            
-            # --- ADDING NEIGHBORS & UMAP ---
-            # We run these on the newly created integrated reduction
-            obj <- FindNeighbors(
-              obj, 
-              reduction = red.name, 
-              dims = 1:30, 
-              graph.name = paste0("snn.", tolower(m))
-            )
-            
-            obj <- RunUMAP(
-              obj, 
-              reduction = red.name, 
-              dims = 1:30, 
-              reduction.name = umap.name, 
-              verbose = FALSE
-            )
-            
             obj
           }, error = function(e) {
-            showNotification(paste(m, "Integration/UMAP failed:", e$message), type = "error")
+            msg <- paste(m, "IntegrateLayers failed:", conditionMessage(e))
+            message(msg, "\n", paste(capture.output(traceback()), collapse = "\n"))
+            showNotification(msg, type = "error")
             return(obj)
           })
+
+          # Only run downstream steps if integration produced the expected reduction
+          if (red.name %in% names(obj@reductions)) {
+            obj <- tryCatch({
+              obj <- FindNeighbors(
+                obj,
+                reduction = red.name,
+                dims = 1:30,
+                graph.name = paste0("snn.", tolower(m))
+              )
+              obj <- RunUMAP(
+                obj,
+                reduction = red.name,
+                dims = 1:30,
+                reduction.name = umap.name,
+                verbose = FALSE
+              )
+              obj
+            }, error = function(e) {
+              msg <- paste(m, "Neighbors/UMAP failed:", conditionMessage(e))
+              message(msg, "\n", paste(capture.output(traceback()), collapse = "\n"))
+              showNotification(msg, type = "error")
+              return(obj)
+            })
+          }
         }
         
         

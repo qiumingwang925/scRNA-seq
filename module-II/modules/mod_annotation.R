@@ -13,7 +13,7 @@ mod.annotation.ui <- function(id) {
                             selected = "full"),
                numericInput(ns("subset.pcs"), "PCs for Subset UMAP:",
                             value = 10, min = 2, max = 50, step = 1),
-               actionButton(ns("run.subset.umap"), "📊 Run UMAP on Selection", class = "btn-warning", style="width:100%")
+               actionButton(ns("run.subset.umap"), "📊 Run UMAP on Selection", class = "btn-warning", style="width:100%"),
                
                hr(),
                tabsetPanel(
@@ -175,16 +175,17 @@ mod.annotation.server <- function(id, shared.data) {
           # safe check
           if (!red.base %in% Reductions(sub)) red.base <- "pca" 
           
-          # Cap PCs to what the data supports: must be < min(cells, features)
-          max.pcs <- min(ncol(sub), nrow(sub)) - 1
+          # Cap to available dimensions in the reduction
+          max.pcs <- ncol(Embeddings(sub, red.base))
           n.pcs <- min(input$subset.pcs, max.pcs)
-          sub <- RunPCA(sub, npcs = n.pcs)
-          sub <- FindNeighbors(sub, dims = 1:n.pcs)
-          sub <- RunUMAP(sub, dims = 1:n.pcs)
-          # 7. Update the subset reactive
+          print(paste("Number of PCs to use:", n.pcs))
+          # sub <- RunPCA(sub, npcs = n.pcs)
+          # sub <- FindNeighbors(sub, dims = 1:n.pcs)
+          sub <- RunUMAP(sub, dims = 1:n.pcs, reduction = red.base)
           subset.obj(sub)
-          # 8. Force view to subset mode
           updateRadioButtons(session, "display.mode", selected = "subset")
+          # RunUMAP stores the result in "umap" — point the view there
+          updateSelectInput(session, "view.red", selected = "umap")
           showNotification("New subset calculated!", type = "message")
           
         }, error = function(e) {
