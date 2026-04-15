@@ -13,6 +13,9 @@ Interactive Shiny-based platform for single-cell RNA sequencing analysis, progre
 - `module-II/` — Shiny app for multi-sample integration and annotation
   - `modules/` — Shiny module files (one per pipeline step)
   - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
+- `module-III/` — Shiny app for post-annotation exploration and visualization
+  - `modules/` — Shiny module files (one per exploration feature)
+  - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
 - `test-data/` — Sample datasets (Cell Ranger MEX format and pre-processed Seurat .rds objects)
 - `manuscript_R/` — Standalone R scripts for manuscript figures and analysis (not part of the Shiny app)
 
@@ -63,12 +66,39 @@ A modular Shiny web application for integrating and annotating multiple scRNA-se
 - Input: Pre-processed Seurat .rds objects (output of Module I)
 - Output: Annotated Seurat .rds files (via shared `mod_save_config`)
 
+## Module III: Post-Annotation Exploration
+
+A modular Shiny web application for exploring and visualizing annotated scRNA-seq data:
+
+**Upload → UMAP Cell-Type → Violin Plot → Dot Plot → Heatmap → Differential Expression → Enrichment Analysis**
+
+### Active Modules (in `module-III/modules/`)
+
+| Module | File | Purpose |
+|--------|------|---------|
+| Upload | `mod_explore_upload.R` | Load slimmed-down Seurat .rds objects, validate structure, report summary |
+| UMAP Cell-Type | `mod_explore_umap.R` | Interactive lasso selection with re-UMAP, cell type highlighting, gene (co-)expression |
+| Violin Plot | `mod_explore_violin.R` | Gene expression by cell type with stacking, split.by, and figure download |
+| Dot Plot | `mod_explore_dot.R` | Gene expression dot plots with per-identity color scaling when split.by is used |
+| Heatmap | `mod_explore_heatmap.R` | Scaled expression heatmaps with HVG or custom genes, vars.to.regress support |
+| DE | `mod_explore_de.R` | Differential expression between configurable cell populations with metadata subsetting |
+| Enrichment | `mod_explore_enrich.R` | enrichR-based pathway analysis on DE results with bar plot visualization |
+
+### Architecture
+
+- Each module is a Shiny module (namespaced UI + server pair)
+- Upload returns reactive Seurat object; all visualization modules consume it via `shared.data`
+- DE module returns its result reactive, which feeds into the Enrichment module
+- Input: Annotated Seurat .rds objects (output of Module II), slimmed down (data slot only)
+- All tabs are available once data is uploaded (flat navigation, not a linear pipeline)
+
 ## Tech Stack
 
 - **Language:** R
 - **Framework:** Shiny
 - **Core packages:** Seurat, DoubletFinder, ggplot2, plotly, tidyverse, glmGamPoi, shinyFiles, shinyjs, ggpubr, shinycssloaders
 - **Module II additional packages:** SeuratWrappers, SeuratObject, presto, cluster, lisi, Matrix
+- **Module III additional packages:** enrichR, openxlsx
 
 ## Naming Conventions
 
@@ -117,7 +147,7 @@ return(list(seurat.obj = <reactive>, completed = <reactiveVal>))
 
 - **Module I** — Individual-sample analysis (active)
 - **Module II** — Multi-sample integration and annotation (active)
-- **Module III** — TBD (future)
+- **Module III** — Post-annotation exploration and visualization (active)
 - **Module IV** — TBD (future)
 
 The platform is designed to progress from individual-sample processing to combined multi-sample analysis across the four modules.
