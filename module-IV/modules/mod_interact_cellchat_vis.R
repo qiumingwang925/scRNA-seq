@@ -18,6 +18,21 @@ check.python.umap <- function() {
   list(ok = TRUE, msg = "")
 }
 
+# Arrange a list of ComplexHeatmap objects in a patchwork grid. Tolerates heatmaps
+# with differing row/column dimensions (which horizontal `+` concatenation cannot).
+draw.heatmap.grid <- function(ht.list, ncol, titles = NULL) {
+  plots <- lapply(seq_along(ht.list), function(i) {
+    tryCatch({
+      patchwork::wrap_elements(grid::grid.grabExpr(ComplexHeatmap::draw(ht.list[[i]])))
+    }, error = function(e) {
+      label <- if (!is.null(titles)) titles[i] else paste("Panel", i)
+      ggplot() + theme_void() +
+        ggtitle(paste0(label, "\n[", conditionMessage(e), "]"))
+    })
+  })
+  print(patchwork::wrap_plots(plots, ncol = ncol))
+}
+
 # Arrange a base-graphics render function (called per group) in a grid layout
 plot.base.grid <- function(groups, ncol, fn, mar = c(2, 2, 3, 2)) {
   n <- length(groups)
@@ -385,7 +400,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           if (!is.null(tgts) && length(tgts) > 0) args$targets.use <- tgts
           do.call(netVisual_heatmap, args)
         })
-        ComplexHeatmap::draw(Reduce(`+`, ht.list), ht_gap = grid::unit(0.5, "cm"))
+        draw.heatmap.grid(ht.list, ncol, titles = grps)
       }
     }
 
@@ -460,7 +475,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           cc <- res$cellchat.list[[g]]
           netVisual_heatmap(cc, signaling = pw, color.heatmap = "Reds", title.name = g)
         })
-        ComplexHeatmap::draw(Reduce(`+`, ht.list), ht_gap = grid::unit(0.5, "cm"))
+        draw.heatmap.grid(ht.list, ncol, titles = grps)
         return(invisible())
       }
 
@@ -540,7 +555,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           netAnalysis_signalingRole_heatmap(cc, pattern = input$sig.pattern,
                                             width = 5, height = 8, title = g)
         })
-        ComplexHeatmap::draw(Reduce(`+`, ht.list), ht_gap = grid::unit(0.5, "cm"))
+        draw.heatmap.grid(ht.list, ncol, titles = grps)
       }
     }
 
@@ -591,20 +606,14 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       }
 
       if (input$pat.plot == "heat") {
-        # identifyCommunicationPatterns draws its own heatmap via ComplexHeatmap::draw
-        # We have to call it within par(mfrow) for grid — but ComplexHeatmap bypasses par
-        # Use grid.newpage + pushViewport for each, or just draw horizontally
         ht.list <- lapply(grps, function(g) {
           cc <- run.patterns(res$cellchat.list[[g]])
-          # Heatmap is drawn by the function itself; for download we'd need to re-run
-          # netAnalysis_computeCentrality result heatmap — use draw on the pattern slot
-          ht <- ComplexHeatmap::Heatmap(
+          ComplexHeatmap::Heatmap(
             cc@netP$pattern[[direction]]$pattern$cell,
             name = paste0(g, " cell"), column_title = g
           )
-          ht
         })
-        ComplexHeatmap::draw(Reduce(`+`, ht.list), ht_gap = grid::unit(0.5, "cm"))
+        draw.heatmap.grid(ht.list, ncol, titles = grps)
         return(invisible())
       }
 
