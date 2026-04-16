@@ -126,7 +126,8 @@ mod.interact.cellchat.vis.ui <- function(id) {
                          choices = c("Interaction count" = "count",
                                      "Interaction weight/strength" = "weight"),
                          selected = "weight"),
-            cell.type.selector.ui(ns, "global.idents", "Cell Types:"),
+            cell.type.selector.ui(ns, "global.sources", "Sources:"),
+            cell.type.selector.ui(ns, "global.targets", "Targets:"),
             common.controls.ui(ns, "global", default.cols = 2)
           ),
           mainPanel(width = 9,
@@ -316,7 +317,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
                         selected = if (length(lr)) lr[1] else NULL)
     })
 
-    wire.cell.type.selector(input, session, "global.idents", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "global.sources", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "global.targets", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.sources", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.targets", ident.choices, selected.all = TRUE)
 
@@ -345,7 +347,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       res <- cellchat.data(); req(res, input$global.plot, input$global.measure)
       grps <- res$group.levels
       ncol <- input$global.cols %||% 2
-      idents <- input$global.idents
+      srcs <- input$global.sources
+      tgts <- input$global.targets
 
       if (input$global.plot == "circle") {
         weight.max <- tryCatch(
@@ -355,18 +358,20 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         plot.base.grid(grps, ncol, function(g) {
           cc <- res$cellchat.list[[g]]
           mat <- if (input$global.measure == "count") cc@net$count else cc@net$weight
-          keep <- if (!is.null(idents) && length(idents) > 0) {
-            intersect(idents, rownames(mat))
-          } else {
-            rownames(mat)
-          }
-          validate(need(length(keep) >= 2,
-                        "Select at least 2 cell types present in this group."))
-          mat.sub <- mat[keep, keep, drop = FALSE]
+          s.keep <- intersect(srcs, rownames(mat))
+          t.keep <- intersect(tgts, colnames(mat))
+          validate(
+            need(length(s.keep) >= 1, "Select at least 1 source present in this group."),
+            need(length(t.keep) >= 1, "Select at least 1 target present in this group.")
+          )
+          nodes <- union(s.keep, t.keep)
+          mat.sub <- mat[nodes, nodes, drop = FALSE]
+          mat.sub[!(rownames(mat.sub) %in% s.keep), ] <- 0
+          mat.sub[, !(colnames(mat.sub) %in% t.keep)] <- 0
           cell.counts <- as.numeric(table(cc@idents))
           names(cell.counts) <- levels(cc@idents)
           netVisual_circle(mat.sub,
-                           vertex.weight = cell.counts[keep],
+                           vertex.weight = cell.counts[nodes],
                            weight.scale = TRUE, label.edge = FALSE,
                            edge.weight.max = if (!is.null(weight.max)) weight.max[2] else NULL,
                            title.name = paste0(g, " — ", input$global.measure))
@@ -376,10 +381,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           cc <- res$cellchat.list[[g]]
           args <- list(object = cc, measure = input$global.measure,
                        color.heatmap = "Reds", title.name = g)
-          if (!is.null(idents) && length(idents) > 0) {
-            args$sources.use <- idents
-            args$targets.use <- idents
-          }
+          if (!is.null(srcs) && length(srcs) > 0) args$sources.use <- srcs
+          if (!is.null(tgts) && length(tgts) > 0) args$targets.use <- tgts
           do.call(netVisual_heatmap, args)
         })
         ComplexHeatmap::draw(Reduce(`+`, ht.list), ht_gap = grid::unit(0.5, "cm"))
