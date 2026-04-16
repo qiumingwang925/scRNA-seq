@@ -8,7 +8,12 @@ mod.explore.heatmap.ui <- function(id) {
       sidebarPanel(width = 4,
         selectInput(ns("select.idents"), "Cell Type(s):",
                     choices = NULL, multiple = TRUE),
-        checkboxInput(ns("show.all.idents"), "Select All", value = TRUE),
+        fluidRow(
+          column(6, actionButton(ns("btn.select.all"), "Select All",
+                                 class = "btn-info", style = "width:100%")),
+          column(6, actionButton(ns("btn.clear.all"), "Clear",
+                                 class = "btn-default", style = "width:100%"))
+        ),
         hr(),
         radioButtons(ns("gene.mode"), "Gene Selection:",
                      choices = c("Highly Variable Genes" = "hvg",
@@ -57,20 +62,25 @@ mod.explore.heatmap.server <- function(id, shared.data) {
       updateSelectInput(session, "vars.to.regress", choices = num.cols)
     })
 
-    observeEvent(input$show.all.idents, {
+    observeEvent(input$btn.select.all, {
       req(shared.data())
-      if (input$show.all.idents) {
-        updateSelectInput(session, "select.idents",
-                          choices = levels(shared.data()),
-                          selected = levels(shared.data()))
-      }
+      updateSelectInput(session, "select.idents",
+                        choices = levels(shared.data()),
+                        selected = levels(shared.data()))
+    })
+
+    observeEvent(input$btn.clear.all, {
+      req(shared.data())
+      updateSelectInput(session, "select.idents",
+                        choices = levels(shared.data()),
+                        selected = character(0))
     })
 
     plot.heatmap <- eventReactive(input$run.heatmap, {
       req(shared.data())
       obj <- shared.data()
 
-      idents.selected <- if (input$show.all.idents) levels(obj) else input$select.idents
+      idents.selected <- input$select.idents
       validate(need(length(idents.selected) > 0, "Please select at least one cell type."))
       obj <- subset(obj, idents = idents.selected)
 
@@ -79,7 +89,18 @@ mod.explore.heatmap.server <- function(id, shared.data) {
         # Determine features
         if (input$gene.mode == "hvg") {
           incProgress(0.2, detail = "Finding variable features")
-          obj <- FindVariableFeatures(obj)
+          # Use whichever layer is available (slim objects may only have "data", not "counts")
+          available.layers <- Layers(obj)
+          hvg.layer <- if ("counts" %in% available.layers) "counts" else "data"
+          tryCatch({
+            obj <- FindVariableFeatures(obj, layer = hvg.layer)
+          }, error = function(e) {
+            message("FindVariableFeatures error: ", e$message)
+            # Fallback: try without specifying layer
+            obj <<- FindVariableFeatures(obj)
+          })
+          validate(need(length(VariableFeatures(obj)) > 0,
+                        "No variable features found. Try using Custom Gene List instead."))
           features <- VariableFeatures(obj)[1:min(input$top.n, length(VariableFeatures(obj)))]
         } else {
           features <- trimws(unlist(strsplit(input$gene.input, ",")))
@@ -96,6 +117,7 @@ mod.explore.heatmap.server <- function(id, shared.data) {
         tryCatch({
           obj <- ScaleData(obj, features = features, vars.to.regress = vars.regress)
         }, error = function(e) {
+          message("ScaleData error: ", e$message)
           showNotification(paste("ScaleData error:", e$message), type = "error")
           validate(need(FALSE, "ScaleData failed. Check vars.to.regress selection."))
         })

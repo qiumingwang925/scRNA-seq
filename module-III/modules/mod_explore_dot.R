@@ -8,7 +8,12 @@ mod.explore.dot.ui <- function(id) {
       sidebarPanel(width = 4,
         selectInput(ns("select.idents"), "Cell Type(s):",
                     choices = NULL, multiple = TRUE),
-        checkboxInput(ns("show.all.idents"), "Select All", value = TRUE),
+        fluidRow(
+          column(6, actionButton(ns("btn.select.all"), "Select All",
+                                 class = "btn-info", style = "width:100%")),
+          column(6, actionButton(ns("btn.clear.all"), "Clear",
+                                 class = "btn-default", style = "width:100%"))
+        ),
         hr(),
         textInput(ns("gene.input"), "Gene(s) (comma-separated)",
                   placeholder = "e.g. Cd68, Cx3cr1, Ccr2, Ly6c2"),
@@ -43,13 +48,18 @@ mod.explore.dot.server <- function(id, shared.data) {
                         choices = c("None", cat.cols), selected = "None")
     })
 
-    observeEvent(input$show.all.idents, {
+    observeEvent(input$btn.select.all, {
       req(shared.data())
-      if (input$show.all.idents) {
-        updateSelectInput(session, "select.idents",
-                          choices = levels(shared.data()),
-                          selected = levels(shared.data()))
-      }
+      updateSelectInput(session, "select.idents",
+                        choices = levels(shared.data()),
+                        selected = levels(shared.data()))
+    })
+
+    observeEvent(input$btn.clear.all, {
+      req(shared.data())
+      updateSelectInput(session, "select.idents",
+                        choices = levels(shared.data()),
+                        selected = character(0))
     })
 
     plot.dot <- eventReactive(input$run.dot, {
@@ -64,7 +74,7 @@ mod.explore.dot.server <- function(id, shared.data) {
       validate(need(length(missing) == 0,
                     paste0("Gene(s) not found: ", paste(missing, collapse = ", "))))
 
-      idents.selected <- if (input$show.all.idents) levels(obj) else input$select.idents
+      idents.selected <- input$select.idents
       validate(need(length(idents.selected) > 0, "Please select at least one cell type."))
       obj <- subset(obj, idents = idents.selected)
 
@@ -72,7 +82,7 @@ mod.explore.dot.server <- function(id, shared.data) {
 
       withProgress(message = "Generating dot plot...", value = 0.3, {
         if (is.null(split.by)) {
-          p <- DotPlot(obj, features = genes) + RotatedAxis()
+          p <- DotPlot(obj, features = genes) + RotatedAxis() + theme_classic()
           incProgress(0.7, detail = "Done")
           p
         } else {
@@ -105,7 +115,7 @@ build.split.dot.plot <- function(obj, genes, split.by) {
   meta$split.id <- as.character(meta[[split.by]])
 
   # Get expression data
-  assay.data <- GetAssayData(obj, slot = "data")
+  assay.data <- GetAssayData(obj, layer = "data")
 
   # Build stats table
   stats.list <- list()
@@ -129,33 +139,45 @@ build.split.dot.plot <- function(obj, genes, split.by) {
   }
   stats.df <- do.call(rbind, stats.list)
 
-  # Assign color palette per split identity
+  stats.df$gene <- factor(stats.df$gene, levels = genes)
+
+  # Combine cell type + split identity into a single y-axis label
+  # Interleaved order (bottom to top): IM group1, IM group2, cMono group1, cMono group2, ...
+  ct.levels <- levels(Idents(obj))
   split.levels <- unique(stats.df$split.id)
+  y.levels <- unlist(lapply(rev(ct.levels), function(ct) {
+    paste(ct, split.levels, sep = " ")
+  }))
+
+  print(y.levels)
+  stats.df$y.label <- factor(paste(stats.df$cell.type, stats.df$split.id, sep = " "),
+                              levels = y.levels)
+
+  # Assign a distinct color per split identity, grey-scale color bar within each
   identity.colors <- scales::hue_pal()(length(split.levels))
   names(identity.colors) <- split.levels
 
-  # Scale avg.exp within each split identity to [0, 1] for color mapping
-  stats.df <- stats.df %>%
-    group_by(split.id) %>%
-    mutate(avg.exp.scaled = if (max(avg.exp) == min(avg.exp)) 0.5
-           else (avg.exp - min(avg.exp)) / (max(avg.exp) - min(avg.exp))) %>%
-    ungroup()
+  # Build plot layer by layer: one geom_point + color scale per split identity
+  # Only show color bar legend for the first group
+  p <- ggplot() +
+    scale_size_continuous(range = c(1, 8), name = "% Expressed")
 
-  # Build per-identity color columns (light grey to identity color)
-  stats.df$fill.color <- mapply(function(scaled, sid) {
-    grDevices::colorRamp(c("lightgrey", identity.colors[sid]))(scaled) %>%
-      { grDevices::rgb(.[1], .[2], .[3], maxColorValue = 255) }
-  }, stats.df$avg.exp.scaled, stats.df$split.id)
+  for (i in seq_along(split.levels)) {
+    sid <- split.levels[i]
+    sub.df <- stats.df[stats.df$split.id == sid, ]
+    show.legend <- TRUE 
+    p <- p +
+      geom_point(data = sub.df,
+                 aes(x = gene, y = y.label, size = pct.exp, color = avg.exp),
+                 show.legend = show.legend) +
+      scale_color_gradient(low = "lightgrey", high = identity.colors[sid],
+                           name = "Avg Expression",
+                           guide = if (show.legend) "colorbar" else "none") +
+      ggnewscale::new_scale_color()
+  }
 
-  stats.df$gene <- factor(stats.df$gene, levels = genes)
-  stats.df$cell.type <- factor(stats.df$cell.type, levels = levels(Idents(obj)))
-
-  ggplot(stats.df, aes(x = gene, y = cell.type, size = pct.exp, color = fill.color)) +
-    geom_point() +
-    scale_color_identity() +
-    scale_size_continuous(range = c(1, 8), name = "% Expressed") +
-    facet_wrap(~ split.id) +
-    theme_minimal() +
+  p + scale_y_discrete(limits = y.levels) +
+    theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    labs(x = "Gene", y = "Cell Type")
+    labs(x = "Gene", y = "")
 }

@@ -3,15 +3,63 @@
 
 # Helper: detect best UMAP reduction and SNN graph for a given Seurat object
 detect.slots.for <- function(obj) {
-  red.name <- grep("umap", Reductions(obj), value = TRUE, ignore.case = TRUE)[1]
+  red.name <- grep("umap", Reductions(obj), value = TRUE, ignore.case = TRUE)
+  # Prefer umap_subset if it exists (from re-UMAP), otherwise first umap match
+  if (length(red.name) == 0) {
+    red.name <- "umap"
+  } else if ("umap_subset" %in% red.name) {
+    red.name <- "umap_subset"
+  } else {
+    red.name <- red.name[1]
+  }
   graph.name <- grep("snn", Graphs(obj), value = TRUE, ignore.case = TRUE)[1]
-  if (is.na(red.name)) red.name <- "umap"
   list(reduction = red.name, graph = graph.name)
+}
+
+# Helper: FeaturePlot with colored points on top and larger than grey points
+reorder.feature.plot <- function(obj, features, reduction, cells = NULL,
+                                 blend = FALSE, pt.size.bg = 0.5, pt.size.fg = 1.5) {
+  if (blend) {
+    p <- FeaturePlot(obj, features = features, reduction = reduction,
+                     cells = cells, blend = TRUE, order = TRUE)
+    # blend returns a list of plots; adjust point sizes on each
+    if (is.list(p) && !inherits(p, "gg")) {
+      p <- lapply(p, function(pp) {
+        pp + theme_minimal()
+      })
+      return(patchwork::wrap_plots(p))
+    }
+    return(p + theme_minimal())
+  }
+
+  # Single gene: build plot with grey background layer + colored foreground layer
+  p <- FeaturePlot(obj, features = features, reduction = reduction,
+                   cells = cells, order = TRUE)
+  # Reorder layers: grey cells as small background, expressing cells as larger foreground
+  plot.data <- p$data
+  expr.col <- features[1]
+  if (!expr.col %in% colnames(plot.data)) {
+    return(p + theme_minimal())
+  }
+  bg <- plot.data[plot.data[[expr.col]] == 0, ]
+  fg <- plot.data[plot.data[[expr.col]] > 0, ]
+  x.col <- colnames(plot.data)[1]
+  y.col <- colnames(plot.data)[2]
+
+  ggplot() +
+    geom_point(data = bg, aes(x = .data[[x.col]], y = .data[[y.col]]),
+               color = "lightgrey", size = pt.size.bg) +
+    geom_point(data = fg, aes(x = .data[[x.col]], y = .data[[y.col]],
+                               color = .data[[expr.col]]),
+               size = pt.size.fg) +
+    scale_color_gradientn(colors = c("lightgrey", "blue")) +
+    labs(x = x.col, y = y.col, color = expr.col) +
+    theme_minimal()
 }
 
 mod.explore.umap.ui <- function(id) {
   ns <- NS(id)
-  tabPanel("UMAP Cell-Type",
+  tabPanel("UMAP",
     tabsetPanel(
       # Sub-tab 1: Interactive Selection
       tabPanel("Interactive Selection",
@@ -46,7 +94,12 @@ mod.explore.umap.ui <- function(id) {
           sidebarPanel(width = 4,
             selectInput(ns("select.idents"), "Select Cell Type(s) to Highlight:",
                         choices = NULL, multiple = TRUE),
-            checkboxInput(ns("show.all"), "Select All", value = TRUE),
+            fluidRow(
+              column(6, actionButton(ns("btn.select.all"), "Select All",
+                                     class = "btn-info", style = "width:100%")),
+              column(6, actionButton(ns("btn.clear.all"), "Clear",
+                                     class = "btn-default", style = "width:100%"))
+            ),
             hr(),
             h4("Download Figure"),
             numericInput(ns("fig.highlight.w"), "Width (inches)", value = 8, min = 2, max = 20),
@@ -71,7 +124,8 @@ mod.explore.umap.ui <- function(id) {
               condition = sprintf("input['%s'] == 'single'", ns("expr.mode")),
               textInput(ns("gene.name"), "Gene Name", placeholder = "e.g. Cd68"),
               selectInput(ns("split.by"), "Split By (optional):",
-                          choices = c("None"), selected = "None")
+                          choices = c("None"), selected = "None"),
+              numericInput(ns("grid.ncol"), "Grid Columns", value = 2, min = 1, max = 6)
             ),
             # Co-expression controls
             conditionalPanel(
@@ -110,6 +164,15 @@ mod.explore.umap.server <- function(id, shared.data) {
     active.obj <- reactiveVal(NULL)
     selected.cell.ids <- reactiveVal(NULL)
 
+    # Build the default color palette from the full dataset (consistent across all sub-tabs)
+    full.palette <- reactive({
+      req(shared.data())
+      all.idents <- levels(shared.data())
+      pal <- scales::hue_pal()(length(all.idents))
+      names(pal) <- all.idents
+      pal
+    })
+
     # Initialize when data is uploaded
     observe({
       req(shared.data())
@@ -134,12 +197,13 @@ mod.explore.umap.server <- function(id, shared.data) {
     # ---- SUB-TAB 1: INTERACTIVE SELECTION ----
 
     # Capture lasso selection
-    observeEvent(event_data("plotly_selected", source = "umap.lasso"), {
-      sel <- event_data("plotly_selected", source = "umap.lasso")
+    observeEvent(plotly::event_data("plotly_selected", source = "umap.lasso"), {
+      sel <- plotly::event_data("plotly_selected", source = "umap.lasso")
       if (!is.null(sel) && !is.null(sel$customdata)) {
-        selected.cell.ids(sel$customdata)
+        ids <- unique(as.character(sel$customdata))
+        selected.cell.ids(ids)
         showNotification(
-          paste(length(sel$customdata), "cells selected. Switch to 'subset' mode to compute."),
+          paste(length(ids), "cells selected. Switch to 'subset' mode to compute."),
           type = "message")
       }
     })
@@ -152,21 +216,25 @@ mod.explore.umap.server <- function(id, shared.data) {
         tryCatch({
           sub <- subset(shared.data(), cells = selected.cell.ids())
           slots <- detect.slots.for(sub)
-          incProgress(0.3, detail = "Running UMAP on graph")
+          incProgress(0.3, detail = "Running UMAP")
 
-          if (!is.na(slots$graph)) {
+          # Prefer PCA/integrated reduction; fall back to graph-based UMAP
+          red.name <- grep("pca|integrated", Reductions(sub), value = TRUE, ignore.case = TRUE)[1]
+          if (!is.na(red.name)) {
+            n.dims <- min(input$subset.pcs, ncol(Embeddings(sub, red.name)))
+            sub <- RunUMAP(sub, reduction = red.name, dims = 1:n.dims,
+                           reduction.name = "umap_subset")
+          } else if (!is.na(slots$graph)) {
             sub <- RunUMAP(sub, graph = slots$graph, reduction.name = "umap_subset")
           } else {
-            red.name <- grep("pca|integrated", Reductions(sub), value = TRUE, ignore.case = TRUE)[1]
-            if (is.na(red.name)) red.name <- "pca"
-            sub <- RunUMAP(sub, reduction = red.name, dims = 1:input$subset.pcs,
-                           reduction.name = "umap_subset")
+            stop("No PCA/integrated reduction or SNN graph found for re-UMAP.")
           }
 
           incProgress(0.7, detail = "Done")
           active.obj(sub)
           showNotification("Subset UMAP complete!", type = "default")
         }, error = function(e) {
+          message("UMAP error: ", e$message)
           showNotification(paste("Error during UMAP:", e$message), type = "error")
         })
       })
@@ -176,6 +244,7 @@ mod.explore.umap.server <- function(id, shared.data) {
     observeEvent(input$reset.umap, {
       active.obj(shared.data())
       selected.cell.ids(NULL)
+      updateRadioButtons(session, "display.mode", selected = "full")
     })
 
     # Render interactive UMAP
@@ -184,12 +253,12 @@ mod.explore.umap.server <- function(id, shared.data) {
       obj <- active.obj()
       slots <- detect.slots()
 
-      p <- DimPlot(obj, reduction = slots$reduction)
-      p$data$cell_id <- rownames(p$data)
+      p <- DimPlot(obj, reduction = slots$reduction, cols = full.palette())
+      # Map cell barcodes to plotly customdata for lasso selection
+      p$layers[[1]]$mapping$customdata <- ggplot2::aes(label = rownames(p$data))$label
 
-      ggplotly(p, source = "umap.lasso") %>%
-        layout(dragmode = "lasso") %>%
-        event_register("plotly_selected")
+      plotly::ggplotly(p + theme_minimal(), source = "umap.lasso") %>%
+        plotly::layout(dragmode = "lasso")
     })
 
     # Cell stats
@@ -204,14 +273,20 @@ mod.explore.umap.server <- function(id, shared.data) {
 
     # ---- SUB-TAB 2: HIGHLIGHT VIEW ----
 
-    # Toggle select all
-    observeEvent(input$show.all, {
+    # Select All button
+    observeEvent(input$btn.select.all, {
       obj <- active.obj()
       req(obj)
-      if (input$show.all) {
-        updateSelectInput(session, "select.idents",
-                          choices = levels(obj), selected = levels(obj))
-      }
+      updateSelectInput(session, "select.idents",
+                        choices = levels(obj), selected = levels(obj))
+    })
+
+    # Clear button
+    observeEvent(input$btn.clear.all, {
+      obj <- active.obj()
+      req(obj)
+      updateSelectInput(session, "select.idents",
+                        choices = levels(obj), selected = character(0))
     })
 
     # Store the highlight plot for download
@@ -219,29 +294,29 @@ mod.explore.umap.server <- function(id, shared.data) {
       req(active.obj())
       obj <- active.obj()
       slots <- detect.slots()
+      idents.selected <- input$select.idents
 
-      idents.selected <- if (input$show.all) levels(obj) else input$select.idents
       req(length(idents.selected) > 0)
 
-      if (length(idents.selected) < length(levels(obj))) {
-        # Preserve original colors for selected types, grey for rest
-        all.idents <- levels(obj)
-        color.palette <- scales::hue_pal()(length(all.idents))
-        names(color.palette) <- all.idents
-
-        cells.to.highlight <- WhichCells(obj, idents = idents.selected)
-        highlight.colors <- color.palette[idents.selected]
-
-        DimPlot(obj,
-                reduction = slots$reduction,
-                cells.highlight = cells.to.highlight,
-                cols.highlight = unname(highlight.colors),
-                cols = "lightgrey",
-                sizes.highlight = 1) +
-          theme_minimal()
-      } else {
-        DimPlot(obj, reduction = slots$reduction) + theme_minimal()
+      # Build color palette: selected types keep their original color, rest are grey
+      all.idents <- levels(obj)
+      pal <- full.palette()
+      display.pal <- setNames(rep("lightgrey", length(all.idents)), all.idents)
+      for (id in idents.selected) {
+        if (id %in% names(pal)) display.pal[id] <- pal[id]
       }
+
+      p <- DimPlot(obj, reduction = slots$reduction, cols = display.pal) + theme_minimal()
+
+      # Keep only highlighted types in the legend
+      if (length(idents.selected) < length(all.idents)) {
+        p <- p + guides(color = guide_legend(override.aes = list(size = 3))) +
+          scale_color_manual(values = display.pal,
+                             breaks = idents.selected,
+                             labels = idents.selected)
+      }
+
+      p
     })
 
     output$umap.static <- renderPlot({ plot.highlight() }, res = 96)
@@ -274,9 +349,30 @@ mod.explore.umap.server <- function(id, shared.data) {
         validate(need(nchar(gene) > 0, "Please enter a gene name."))
         validate(need(gene %in% rownames(obj), paste0("Gene '", gene, "' not found.")))
 
-        split.by <- if (input$split.by == "None") NULL else input$split.by
-        FeaturePlot(obj, features = gene, reduction = slots$reduction,
-                    split.by = split.by) + theme_minimal()
+        split.col <- if (input$split.by == "None") NULL else input$split.by
+
+        if (is.null(split.col)) {
+          reorder.feature.plot(obj, gene, slots$reduction)
+        } else {
+          # Compute shared ranges for consistent axes and color scale
+          expr.vals <- GetAssayData(obj, layer = "data")[gene, ]
+          expr.range <- range(expr.vals)
+          umap.coords <- Embeddings(obj, reduction = slots$reduction)
+          x.range <- range(umap.coords[, 1])
+          y.range <- range(umap.coords[, 2])
+
+          groups <- unique(as.character(obj@meta.data[[split.col]]))
+          plot.list <- lapply(groups, function(grp) {
+            cells <- colnames(obj)[obj@meta.data[[split.col]] == grp]
+            reorder.feature.plot(obj, gene, slots$reduction, cells = cells) +
+              scale_color_gradientn(colors = c("lightgrey", "blue"),
+                                   limits = expr.range) +
+              xlim(x.range) + ylim(y.range) +
+              ggtitle(grp)
+          })
+          patchwork::wrap_plots(plot.list, ncol = input$grid.ncol) +
+            patchwork::plot_layout(guides = "collect")
+        }
 
       } else {
         gene1 <- trimws(input$gene1)
@@ -293,8 +389,7 @@ mod.explore.umap.server <- function(id, shared.data) {
           plot.obj <- subset(obj, cells = cells.keep)
         }
 
-        FeaturePlot(plot.obj, features = c(gene1, gene2), blend = TRUE,
-                    reduction = slots$reduction) + theme_minimal()
+        reorder.feature.plot(plot.obj, c(gene1, gene2), slots$reduction, blend = TRUE)
       }
     })
 

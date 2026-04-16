@@ -119,6 +119,7 @@ mod.explore.de.server <- function(id, shared.data) {
 
           markers$gene <- rownames(markers)
           markers <- markers %>%
+            select(gene, everything()) %>%
             filter(p_val_adj <= 0.05) %>%
             arrange(p_val_adj)
 
@@ -126,6 +127,7 @@ mod.explore.de.server <- function(id, shared.data) {
           incProgress(0.1, detail = "Done")
           showNotification(paste(nrow(markers), "significant DE genes found."), type = "message")
         }, error = function(e) {
+          message("DE error: ", e$message)
           showNotification(paste("DE error:", e$message), type = "error")
         })
       })

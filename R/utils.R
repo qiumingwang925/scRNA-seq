@@ -20,3 +20,10 @@ load.or.install <- function(pkg, github.url = NULL) {
   }
   library(pkg, character.only = TRUE)
 }
+
+# Returns non-numeric (categorical) metadata column names from a Seurat object
+get.categorical.meta <- function(obj) {
+  meta <- obj@meta.data
+  cat.cols <- sapply(meta, function(x) !is.numeric(x))
+  names(cat.cols)[cat.cols]
+}

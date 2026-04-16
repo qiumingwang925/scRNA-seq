@@ -32,6 +32,7 @@ mod.explore.upload.server <- function(id) {
           incProgress(0.7, detail = "Done")
           obj
         }, error = function(e) {
+          message("Upload error: ", e$message)
           showNotification(paste("Error loading file:", e$message), type = "error")
           NULL
         })

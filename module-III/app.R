@@ -10,6 +10,9 @@ load.or.install("SeuratObject")
 load.or.install("ggplot2")
 load.or.install("tidyverse")
 load.or.install("plotly")
+load.or.install("scales")
+load.or.install("patchwork")
+load.or.install("ggnewscale")
 load.or.install("DT")
 load.or.install("presto", github.url = "immunogenomics/presto")
 load.or.install("enrichR")
@@ -24,13 +27,6 @@ source("modules/mod_explore_dot.R")
 source("modules/mod_explore_heatmap.R")
 source("modules/mod_explore_de.R")
 source("modules/mod_explore_enrich.R")
-
-# Returns non-numeric metadata column names (categorical columns for split.by, etc.)
-get.categorical.meta <- function(obj) {
-  meta <- obj@meta.data
-  cat.cols <- sapply(meta, function(x) !is.numeric(x))
-  names(cat.cols)[cat.cols]
-}
 
 ui <- fluidPage(
   useShinyjs(),

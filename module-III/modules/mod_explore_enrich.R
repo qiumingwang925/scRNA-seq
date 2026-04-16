@@ -82,6 +82,7 @@ mod.explore.enrich.server <- function(id, de.result) {
           incProgress(0.2, detail = "Done")
           result
         }, error = function(e) {
+          message("Enrichment error: ", e$message)
           showNotification(paste("Enrichment error:", e$message), type = "error")
           NULL
         })

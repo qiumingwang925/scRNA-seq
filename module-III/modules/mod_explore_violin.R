@@ -8,7 +8,12 @@ mod.explore.violin.ui <- function(id) {
       sidebarPanel(width = 4,
         selectInput(ns("select.idents"), "Cell Type(s):",
                     choices = NULL, multiple = TRUE),
-        checkboxInput(ns("show.all.idents"), "Select All", value = TRUE),
+        fluidRow(
+          column(6, actionButton(ns("btn.select.all"), "Select All",
+                                 class = "btn-info", style = "width:100%")),
+          column(6, actionButton(ns("btn.clear.all"), "Clear",
+                                 class = "btn-default", style = "width:100%"))
+        ),
         hr(),
         textInput(ns("gene.input"), "Gene(s) (comma-separated)",
                   placeholder = "e.g. Cd68, Cx3cr1, Ccr2"),
@@ -45,14 +50,18 @@ mod.explore.violin.server <- function(id, shared.data) {
                         choices = c("None", cat.cols), selected = "None")
     })
 
-    # Toggle select all
-    observeEvent(input$show.all.idents, {
+    observeEvent(input$btn.select.all, {
       req(shared.data())
-      if (input$show.all.idents) {
-        updateSelectInput(session, "select.idents",
-                          choices = levels(shared.data()),
-                          selected = levels(shared.data()))
-      }
+      updateSelectInput(session, "select.idents",
+                        choices = levels(shared.data()),
+                        selected = levels(shared.data()))
+    })
+
+    observeEvent(input$btn.clear.all, {
+      req(shared.data())
+      updateSelectInput(session, "select.idents",
+                        choices = levels(shared.data()),
+                        selected = character(0))
     })
 
     plot.vln <- eventReactive(input$run.vln, {
@@ -70,7 +79,7 @@ mod.explore.violin.server <- function(id, shared.data) {
                     paste0("Gene(s) not found: ", paste(missing, collapse = ", "))))
 
       # Subset by selected cell types
-      idents.selected <- if (input$show.all.idents) levels(obj) else input$select.idents
+      idents.selected <- input$select.idents
       validate(need(length(idents.selected) > 0, "Please select at least one cell type."))
       obj <- subset(obj, idents = idents.selected)
 
