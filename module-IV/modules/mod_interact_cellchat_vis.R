@@ -49,6 +49,38 @@ make.render.and.download <- function(output, session, plot.id, dl.id, thunk,
   )
 }
 
+# Cell-type selector matching Module III: selectInput(multiple) + Select All / Clear
+cell.type.selector.ui <- function(ns, id, label = "Cell Type(s):") {
+  tagList(
+    selectInput(ns(id), label, choices = NULL, multiple = TRUE),
+    fluidRow(
+      column(6, actionButton(ns(paste0(id, ".all")), "Select All",
+                             class = "btn-info", style = "width:100%")),
+      column(6, actionButton(ns(paste0(id, ".clear")), "Clear",
+                             class = "btn-default", style = "width:100%"))
+    )
+  )
+}
+
+wire.cell.type.selector <- function(input, session, id, choices.reactive, selected.all = TRUE) {
+  observe({
+    choices <- choices.reactive()
+    req(choices)
+    updateSelectInput(session, id, choices = choices,
+                      selected = if (selected.all) choices else character(0))
+  })
+  observeEvent(input[[paste0(id, ".all")]], {
+    choices <- choices.reactive()
+    req(choices)
+    updateSelectInput(session, id, choices = choices, selected = choices)
+  })
+  observeEvent(input[[paste0(id, ".clear")]], {
+    choices <- choices.reactive()
+    req(choices)
+    updateSelectInput(session, id, choices = choices, selected = character(0))
+  })
+}
+
 # Common sidebar controls (width / height / cols / download)
 common.controls.ui <- function(ns, prefix, default.cols = 2, dl.label = "Download Figure") {
   tagList(
@@ -94,6 +126,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
                          choices = c("Interaction count" = "count",
                                      "Interaction weight/strength" = "weight"),
                          selected = "weight"),
+            cell.type.selector.ui(ns, "global.idents", "Cell Types:"),
             common.controls.ui(ns, "global", default.cols = 2)
           ),
           mainPanel(width = 9,
@@ -125,10 +158,9 @@ mod.interact.cellchat.vis.ui <- function(id) {
                                   ns("zoom.plot")),
               selectInput(ns("zoom.lr"), "L-R pair:", choices = NULL)
             ),
-            checkboxGroupInput(ns("zoom.sources"), "Sources (leave empty = all):", choices = NULL),
-            checkboxGroupInput(ns("zoom.targets"),
-                               "Targets (leave empty = all, also used as hierarchy receivers):",
-                               choices = NULL),
+            cell.type.selector.ui(ns, "zoom.sources", "Sources:"),
+            cell.type.selector.ui(ns, "zoom.targets",
+                                  "Targets (also used as hierarchy receivers):"),
             common.controls.ui(ns, "zoom", default.cols = 2)
           ),
           mainPanel(width = 9,
@@ -284,11 +316,9 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
                         selected = if (length(lr)) lr[1] else NULL)
     })
 
-    observe({
-      ids <- ident.choices()
-      updateCheckboxGroupInput(session, "zoom.sources", choices = ids, selected = NULL)
-      updateCheckboxGroupInput(session, "zoom.targets", choices = ids, selected = NULL)
-    })
+    wire.cell.type.selector(input, session, "global.idents", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "zoom.sources", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "zoom.targets", ident.choices, selected.all = TRUE)
 
     # Auto-size plot output based on user width/height
     plot.output <- function(prefix) {
@@ -315,6 +345,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       res <- cellchat.data(); req(res, input$global.plot, input$global.measure)
       grps <- res$group.levels
       ncol <- input$global.cols %||% 2
+      idents <- input$global.idents
 
       if (input$global.plot == "circle") {
         weight.max <- tryCatch(
@@ -324,18 +355,32 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         plot.base.grid(grps, ncol, function(g) {
           cc <- res$cellchat.list[[g]]
           mat <- if (input$global.measure == "count") cc@net$count else cc@net$weight
-          netVisual_circle(mat,
-                           vertex.weight = as.numeric(table(cc@idents)),
+          keep <- if (!is.null(idents) && length(idents) > 0) {
+            intersect(idents, rownames(mat))
+          } else {
+            rownames(mat)
+          }
+          validate(need(length(keep) >= 2,
+                        "Select at least 2 cell types present in this group."))
+          mat.sub <- mat[keep, keep, drop = FALSE]
+          cell.counts <- as.numeric(table(cc@idents))
+          names(cell.counts) <- levels(cc@idents)
+          netVisual_circle(mat.sub,
+                           vertex.weight = cell.counts[keep],
                            weight.scale = TRUE, label.edge = FALSE,
                            edge.weight.max = if (!is.null(weight.max)) weight.max[2] else NULL,
                            title.name = paste0(g, " — ", input$global.measure))
         })
       } else {
-        # Heatmap: ComplexHeatmap horizontal concatenation
         ht.list <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
-          netVisual_heatmap(cc, measure = input$global.measure,
-                            color.heatmap = "Reds", title.name = g)
+          args <- list(object = cc, measure = input$global.measure,
+                       color.heatmap = "Reds", title.name = g)
+          if (!is.null(idents) && length(idents) > 0) {
+            args$sources.use <- idents
+            args$targets.use <- idents
+          }
+          do.call(netVisual_heatmap, args)
         })
         ComplexHeatmap::draw(Reduce(`+`, ht.list), ht_gap = grid::unit(0.5, "cm"))
       }
