@@ -394,11 +394,32 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       } else {
         ht.list <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
-          args <- list(object = cc, measure = input$global.measure,
-                       color.heatmap = "Reds", title.name = g)
-          if (!is.null(srcs) && length(srcs) > 0) args$sources.use <- srcs
-          if (!is.null(tgts) && length(tgts) > 0) args$targets.use <- tgts
-          do.call(netVisual_heatmap, args)
+          mat <- if (input$global.measure == "count") cc@net$count else cc@net$weight
+          s.keep <- intersect(srcs, rownames(mat))
+          t.keep <- intersect(tgts, colnames(mat))
+          if (length(s.keep) == 0 || length(t.keep) == 0) {
+            return(ComplexHeatmap::Heatmap(
+              matrix(0, 1, 1, dimnames = list("-", "-")),
+              column_title = paste0(g, " (no matching cells)"),
+              show_heatmap_legend = FALSE
+            ))
+          }
+          sub <- mat[s.keep, t.keep, drop = FALSE]
+          vmax <- max(sub, na.rm = TRUE)
+          col.fn <- circlize::colorRamp2(
+            c(0, if (vmax > 0) vmax else 1),
+            c("#FFF5F0", "#A50F15")
+          )
+          ComplexHeatmap::Heatmap(
+            sub,
+            name = input$global.measure,
+            col = col.fn,
+            column_title = g,
+            row_title = "Sources",
+            column_title_side = "top",
+            row_names_side = "left",
+            cluster_rows = FALSE, cluster_columns = FALSE
+          )
         })
         draw.heatmap.grid(ht.list, ncol, titles = grps)
       }
