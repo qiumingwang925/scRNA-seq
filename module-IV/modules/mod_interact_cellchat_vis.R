@@ -122,8 +122,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
                     accept = ".rds"),
           verbatimTextOutput(ns("input.summary")),
           hr(),
-          radioButtons(ns("group.selected"), "Group to display:",
-                       choices = character(0), inline = TRUE)
+          uiOutput(ns("group.selector.ui"))
         )
       )
     ),
@@ -338,12 +337,12 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     wire.cell.type.selector(input, session, "zoom.sources", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.targets", ident.choices, selected.all = TRUE)
 
-    observe({
+    output$group.selector.ui <- renderUI({
       res <- cellchat.data()
       req(res)
-      updateRadioButtons(session, "group.selected",
-                         choices = res$group.levels,
-                         selected = res$group.levels[1], inline = TRUE)
+      radioButtons(ns("group.selected"), "Group to display:",
+                   choices = res$group.levels,
+                   selected = res$group.levels[1], inline = TRUE)
     })
 
     # Auto-size plot output based on user width/height
