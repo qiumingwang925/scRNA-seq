@@ -96,17 +96,37 @@ wire.cell.type.selector <- function(input, session, id, choices.reactive, select
   })
 }
 
-# Common sidebar controls (width / height / download)
-common.controls.ui <- function(ns, prefix, dl.label = "Download Figure") {
+# Common sidebar controls (width / height / cols / download)
+common.controls.ui <- function(ns, prefix, default.cols = 2, dl.label = "Download Figure") {
   tagList(
     hr(),
     h5("Figure controls"),
+    numericInput(ns(paste0(prefix, ".cols")), "Columns per row:",
+                 value = default.cols, min = 1, max = 6, step = 1),
     numericInput(ns(paste0(prefix, ".width")), "Width (inches):",
                  value = 10, min = 3, max = 30, step = 1),
     numericInput(ns(paste0(prefix, ".height")), "Height (inches):",
                  value = 6, min = 3, max = 30, step = 1),
     downloadButton(ns(paste0(prefix, ".download")), dl.label, style = "width:100%")
   )
+}
+
+# Arrange a list of "render thunks" (each a no-arg function that draws a plot)
+# in a patchwork grid. Uses ggplotify::as.ggplot so base-graphics, ComplexHeatmap,
+# and ggplots all coexist — and, critically, so CellChat's internal par(mfrow) for
+# hierarchy plots doesn't collide with an outer par(mfrow).
+plot.grid <- function(thunks, ncol, titles = NULL) {
+  plots <- lapply(seq_along(thunks), function(i) {
+    tryCatch(
+      ggplotify::as.ggplot(thunks[[i]]),
+      error = function(e) {
+        label <- if (!is.null(titles)) titles[i] else paste("Panel", i)
+        ggplot() + theme_void() +
+          ggtitle(paste0(label, "\n[", conditionMessage(e), "]"))
+      }
+    )
+  })
+  print(patchwork::wrap_plots(plots, ncol = ncol))
 }
 
 # ---------- UI ----------
@@ -120,9 +140,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
           fileInput(ns("vis.file"),
                     "Upload processed CellChat result (.rds) — skip if computed above:",
                     accept = ".rds"),
-          verbatimTextOutput(ns("input.summary")),
-          hr(),
-          uiOutput(ns("group.selector.ui"))
+          verbatimTextOutput(ns("input.summary"))
         )
       )
     ),
@@ -143,7 +161,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
                          selected = "weight"),
             cell.type.selector.ui(ns, "global.sources", "Sources:"),
             cell.type.selector.ui(ns, "global.targets", "Targets:"),
-            common.controls.ui(ns, "global")
+            common.controls.ui(ns, "global", default.cols = 2)
           ),
           mainPanel(width = 9,
             uiOutput(ns("global.plot.ui"))
@@ -177,7 +195,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
             cell.type.selector.ui(ns, "zoom.sources", "Sources:"),
             cell.type.selector.ui(ns, "zoom.targets",
                                   "Targets (also used as hierarchy receivers):"),
-            common.controls.ui(ns, "zoom")
+            common.controls.ui(ns, "zoom", default.cols = 2)
           ),
           mainPanel(width = 9,
             uiOutput(ns("zoom.plot.ui"))
@@ -207,7 +225,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
                                        "All" = "all"),
                            selected = "all")
             ),
-            common.controls.ui(ns, "sig")
+            common.controls.ui(ns, "sig", default.cols = 2)
           ),
           mainPanel(width = 9,
             uiOutput(ns("sig.plot.ui"))
@@ -242,7 +260,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
                            selected = "functional"),
               helpText("Manifold requires Python 'umap-learn' via reticulate.")
             ),
-            common.controls.ui(ns, "pat")
+            common.controls.ui(ns, "pat", default.cols = 2)
           ),
           mainPanel(width = 9,
             uiOutput(ns("pat.plot.ui"))
@@ -337,13 +355,6 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     wire.cell.type.selector(input, session, "zoom.sources", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.targets", ident.choices, selected.all = TRUE)
 
-    output$group.selector.ui <- renderUI({
-      res <- cellchat.data()
-      req(res)
-      radioButtons(ns("group.selected"), "Group to display:",
-                   choices = res$group.levels,
-                   selected = res$group.levels[1], inline = TRUE)
-    })
 
     # Auto-size plot output based on user width/height
     plot.output <- function(prefix) {
@@ -396,58 +407,65 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     }
 
     global.thunk <- function() {
-      res <- cellchat.data(); req(res, input$global.plot, input$global.measure,
-                                 input$group.selected)
-      g <- input$group.selected
-      cc <- res$cellchat.list[[g]]; req(cc)
+      res <- cellchat.data(); req(res, input$global.plot, input$global.measure)
+      grps <- res$group.levels
+      ncol <- input$global.cols %||% 2
       all.idents <- ident.choices()
       srcs <- input$global.sources; tgts <- input$global.targets
-      s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
-      validate(
-        need(!s$empty, paste0("Selected source(s) not present in '", g, "'.")),
-        need(!t$empty, paste0("Selected target(s) not present in '", g, "'."))
+      measure <- input$global.measure
+
+      weight.max <- tryCatch(
+        getMaxWeight(res$cellchat.list, attribute = c("idents", measure)),
+        error = function(e) NULL
       )
+      vertex.weight.max <- max(unlist(lapply(res$cellchat.list, function(cc) {
+        as.numeric(table(cc@idents))
+      })))
 
-      mat <- if (input$global.measure == "count") cc@net$count else cc@net$weight
-      s.keep <- if (s$active) s$use else rownames(mat)
-      t.keep <- if (t$active) t$use else colnames(mat)
+      thunks <- lapply(grps, function(g) {
+        force(g)
+        function() {
+          cc <- res$cellchat.list[[g]]
+          s <- resolve.sel(cc, srcs, all.idents)
+          t <- resolve.sel(cc, tgts, all.idents)
+          if (s$empty || t$empty) {
+            plot.new(); title(paste0(g, "\n(selection absent)")); return(invisible())
+          }
+          mat <- if (measure == "count") cc@net$count else cc@net$weight
+          s.keep <- if (s$active) s$use else rownames(mat)
+          t.keep <- if (t$active) t$use else colnames(mat)
 
-      if (input$global.plot == "circle") {
-        weight.max <- tryCatch(
-          getMaxWeight(res$cellchat.list, attribute = c("idents", input$global.measure)),
-          error = function(e) NULL
-        )
-        vertex.weight.max <- max(unlist(lapply(res$cellchat.list, function(cc) {
-          as.numeric(table(cc@idents))
-        })))
-        nodes <- union(s.keep, t.keep)
-        mat.sub <- mat[nodes, nodes, drop = FALSE]
-        mat.sub[!(rownames(mat.sub) %in% s.keep), ] <- 0
-        mat.sub[, !(colnames(mat.sub) %in% t.keep)] <- 0
-        cell.counts <- as.numeric(table(cc@idents))
-        names(cell.counts) <- levels(cc@idents)
-        netVisual_circle(mat.sub,
-                         vertex.weight = cell.counts[nodes],
-                         vertex.weight.max = vertex.weight.max,
-                         vertex.size.max = 15,
-                         weight.scale = TRUE, label.edge = FALSE,
-                         edge.weight.max = if (!is.null(weight.max)) weight.max[2] else NULL,
-                         title.name = paste0(g, " — ", input$global.measure))
-      } else {
-        sub <- mat[s.keep, t.keep, drop = FALSE]
-        vmax <- max(sub, na.rm = TRUE)
-        col.fn <- circlize::colorRamp2(
-          c(0, if (vmax > 0) vmax else 1),
-          c("#FFF5F0", "#A50F15")
-        )
-        ht <- ComplexHeatmap::Heatmap(
-          sub, name = input$global.measure, col = col.fn,
-          column_title = g, row_title = "Sources",
-          column_title_side = "top", row_names_side = "left",
-          cluster_rows = FALSE, cluster_columns = FALSE
-        )
-        ComplexHeatmap::draw(ht)
-      }
+          if (input$global.plot == "circle") {
+            nodes <- union(s.keep, t.keep)
+            mat.sub <- mat[nodes, nodes, drop = FALSE]
+            mat.sub[!(rownames(mat.sub) %in% s.keep), ] <- 0
+            mat.sub[, !(colnames(mat.sub) %in% t.keep)] <- 0
+            cell.counts <- as.numeric(table(cc@idents))
+            names(cell.counts) <- levels(cc@idents)
+            netVisual_circle(mat.sub,
+                             vertex.weight = cell.counts[nodes],
+                             vertex.weight.max = vertex.weight.max,
+                             vertex.size.max = 15,
+                             weight.scale = TRUE, label.edge = FALSE,
+                             edge.weight.max = if (!is.null(weight.max)) weight.max[2] else NULL,
+                             title.name = paste0(g, " — ", measure))
+          } else {
+            sub <- mat[s.keep, t.keep, drop = FALSE]
+            vmax <- max(sub, na.rm = TRUE)
+            col.fn <- circlize::colorRamp2(
+              c(0, if (vmax > 0) vmax else 1),
+              c("#FFF5F0", "#A50F15")
+            )
+            ComplexHeatmap::draw(ComplexHeatmap::Heatmap(
+              sub, name = measure, col = col.fn,
+              column_title = g, row_title = "Sources",
+              column_title_side = "top", row_names_side = "left",
+              cluster_rows = FALSE, cluster_columns = FALSE
+            ))
+          }
+        }
+      })
+      plot.grid(thunks, ncol, titles = grps)
     }
 
     make.render.and.download(output, session, "global.plot", "global.download",
@@ -464,88 +482,105 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     nz <- function(x) if (!is.null(x) && length(x) > 0) x else NULL
 
     zoom.thunk <- function() {
-      res <- cellchat.data(); req(res, input$zoom.plot, input$zoom.pathway,
-                                 input$group.selected)
-      g <- input$group.selected
-      cc <- res$cellchat.list[[g]]; req(cc)
+      res <- cellchat.data(); req(res, input$zoom.plot, input$zoom.pathway)
+      grps <- res$group.levels
+      ncol <- input$zoom.cols %||% 2
       pw <- input$zoom.pathway
       lr <- input$zoom.lr
       srcs <- nz(input$zoom.sources); tgts <- nz(input$zoom.targets)
       all.idents <- ident.choices()
-      s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
-      validate(
-        need(!s$empty, paste0("Selected source(s) not present in '", g, "'.")),
-        need(!t$empty, paste0("Selected target(s) not present in '", g, "'.")),
-        need(pw %in% cc@netP$pathways,
-             paste0("Pathway '", pw, "' not present in '", g, "'."))
-      )
-
       pt <- input$zoom.plot
       is.lr <- startsWith(pt, "lr.")
-      if (is.lr) {
-        req(lr)
-        enriched <- tryCatch(
-          extractEnrichedLR(cc, signaling = pw, geneLR.return = FALSE)$interaction_name,
-          error = function(e) character()
-        )
-        validate(need(lr %in% enriched,
-                      paste0("L-R pair '", lr, "' not enriched in '", g, "'.")))
-      }
-
-      hier.receiver <- function() {
-        lv <- levels(cc@idents)
-        if (!is.null(tgts) && length(tgts) > 0) {
-          idx <- which(lv %in% tgts)
-          if (length(idx) > 0 && length(idx) < length(lv)) return(idx)
-        }
-        seq_len(ceiling(length(lv) / 2))
-      }
-
-      if (pt == "bubble") {
-        return(print(netVisual_bubble(cc, signaling = pw,
-                                      sources.use = if (s$active) s$use else NULL,
-                                      targets.use = if (t$active) t$use else NULL,
-                                      remove.isolate = FALSE) +
-                       ggtitle(g)))
-      }
-
-      if (pt == "violin") {
-        cc.sub <- cc
-        keep <- union(if (s$active) s$use else NULL,
-                      if (t$active) t$use else NULL)
-        if (length(keep) > 0 && length(keep) < length(levels(cc@idents))) {
-          cells <- names(cc@idents)[cc@idents %in% keep]
-          cc.sub <- subsetCellChat(cc, cells.use = cells)
-        }
-        return(print(plotGeneExpression(cc.sub, signaling = pw, enriched.only = TRUE) +
-                       patchwork::plot_annotation(title = g)))
-      }
-
-      if (pt == "pw.heat") {
-        args <- list(object = cc, signaling = pw,
-                     color.heatmap = "Reds", title.name = g)
-        if (s$active) args$sources.use <- s$use
-        if (t$active) args$targets.use <- t$use
-        return(ComplexHeatmap::draw(do.call(netVisual_heatmap, args)))
-      }
-
       layout.map <- c(pw.hier = "hierarchy", pw.circle = "circle", pw.chord = "chord",
                       lr.hier = "hierarchy", lr.circle = "circle", lr.chord = "chord")
-      layout <- layout.map[[pt]]
 
-      common <- list(object = cc, signaling = pw, layout = layout)
-      if (layout == "hierarchy") {
-        common$vertex.receiver <- hier.receiver()
-      } else {
-        if (s$active) common$sources.use <- s$use
-        if (t$active) common$targets.use <- t$use
-      }
-      if (is.lr) {
-        common$pairLR.use <- lr
-        do.call(netVisual_individual, common)
-      } else {
-        do.call(netVisual_aggregate, common)
-      }
+      thunks <- lapply(grps, function(g) {
+        force(g)
+        function() {
+          cc <- res$cellchat.list[[g]]
+          s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
+          missing.msg <- NULL
+          if (s$empty || t$empty) missing.msg <- "selection absent"
+          else if (!pw %in% cc@netP$pathways) missing.msg <- "pathway absent"
+          else if (is.lr) {
+            enriched <- tryCatch(
+              extractEnrichedLR(cc, signaling = pw, geneLR.return = FALSE)$interaction_name,
+              error = function(e) character()
+            )
+            if (is.null(lr) || !(lr %in% enriched)) missing.msg <- "L-R pair absent"
+          }
+          if (!is.null(missing.msg)) {
+            if (pt == "pw.heat") {
+              ComplexHeatmap::draw(ComplexHeatmap::Heatmap(
+                matrix(0, 1, 1, dimnames = list("-", "-")),
+                column_title = paste0(g, " (", missing.msg, ")"),
+                show_heatmap_legend = FALSE))
+            } else if (pt %in% c("bubble", "violin")) {
+              print(ggplot() + theme_void() +
+                      ggtitle(paste0(g, "\n(", missing.msg, ")")))
+            } else {
+              plot.new(); title(paste0(g, "\n(", missing.msg, ")"))
+            }
+            return(invisible())
+          }
+
+          hier.receiver <- function() {
+            lv <- levels(cc@idents)
+            if (!is.null(tgts) && length(tgts) > 0) {
+              idx <- which(lv %in% tgts)
+              if (length(idx) > 0 && length(idx) < length(lv)) return(idx)
+            }
+            seq_len(ceiling(length(lv) / 2))
+          }
+
+          if (pt == "bubble") {
+            print(netVisual_bubble(cc, signaling = pw,
+                                   sources.use = if (s$active) s$use else NULL,
+                                   targets.use = if (t$active) t$use else NULL,
+                                   remove.isolate = FALSE) +
+                    ggtitle(g))
+            return(invisible())
+          }
+
+          if (pt == "violin") {
+            cc.sub <- cc
+            keep <- union(if (s$active) s$use else NULL,
+                          if (t$active) t$use else NULL)
+            if (length(keep) > 0 && length(keep) < length(levels(cc@idents))) {
+              cells <- names(cc@idents)[cc@idents %in% keep]
+              cc.sub <- subsetCellChat(cc, cells.use = cells)
+            }
+            print(plotGeneExpression(cc.sub, signaling = pw, enriched.only = TRUE) +
+                    patchwork::plot_annotation(title = g))
+            return(invisible())
+          }
+
+          if (pt == "pw.heat") {
+            args <- list(object = cc, signaling = pw,
+                         color.heatmap = "Reds", title.name = g)
+            if (s$active) args$sources.use <- s$use
+            if (t$active) args$targets.use <- t$use
+            ComplexHeatmap::draw(do.call(netVisual_heatmap, args))
+            return(invisible())
+          }
+
+          layout <- layout.map[[pt]]
+          common <- list(object = cc, signaling = pw, layout = layout)
+          if (layout == "hierarchy") {
+            common$vertex.receiver <- hier.receiver()
+          } else {
+            if (s$active) common$sources.use <- s$use
+            if (t$active) common$targets.use <- t$use
+          }
+          if (is.lr) {
+            common$pairLR.use <- lr
+            do.call(netVisual_individual, common)
+          } else {
+            do.call(netVisual_aggregate, common)
+          }
+        }
+      })
+      plot.grid(thunks, ncol, titles = grps)
     }
 
     make.render.and.download(output, session, "zoom.plot", "zoom.download",
@@ -568,28 +603,31 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     }
 
     sig.thunk <- function() {
-      res <- cellchat.data(); req(res, input$sig.plot, input$group.selected)
-      g <- input$group.selected
-      cc <- compute.centrality(res$cellchat.list[[g]]); req(cc)
+      res <- cellchat.data(); req(res, input$sig.plot)
+      grps <- res$group.levels
+      ncol <- input$sig.cols %||% 2
 
-      if (input$sig.plot == "score") {
-        req(input$sig.pathway)
-        validate(need(input$sig.pathway %in% cc@netP$pathways,
-                      paste0("Pathway '", input$sig.pathway, "' not in '", g, "'.")))
-        netAnalysis_signalingRole_network(cc, signaling = input$sig.pathway,
-                                          width = 8, height = 2.5, font.size = 10)
-        return(invisible())
-      }
-
-      if (input$sig.plot == "scatter") {
-        return(print(netAnalysis_signalingRole_scatter(cc) + ggtitle(g)))
-      }
-
-      if (input$sig.plot == "heatmap") {
-        ComplexHeatmap::draw(netAnalysis_signalingRole_heatmap(
-          cc, pattern = input$sig.pattern,
-          width = 5, height = 8, title = g))
-      }
+      thunks <- lapply(grps, function(g) {
+        force(g)
+        function() {
+          cc <- compute.centrality(res$cellchat.list[[g]])
+          if (input$sig.plot == "score") {
+            req(input$sig.pathway)
+            if (!input$sig.pathway %in% cc@netP$pathways) {
+              plot.new(); title(paste0(g, "\n(pathway absent)")); return(invisible())
+            }
+            netAnalysis_signalingRole_network(cc, signaling = input$sig.pathway,
+                                              width = 8, height = 2.5, font.size = 10)
+          } else if (input$sig.plot == "scatter") {
+            print(netAnalysis_signalingRole_scatter(cc) + ggtitle(g))
+          } else if (input$sig.plot == "heatmap") {
+            ComplexHeatmap::draw(netAnalysis_signalingRole_heatmap(
+              cc, pattern = input$sig.pattern,
+              width = 5, height = 8, title = g))
+          }
+        }
+      })
+      plot.grid(thunks, ncol, titles = grps)
     }
 
     make.render.and.download(output, session, "sig.plot", "sig.download",
@@ -624,27 +662,30 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         return(invisible())
       }
 
-      req(input$pat.direction, input$pat.k, input$group.selected)
-      g <- input$group.selected
+      req(input$pat.direction, input$pat.k)
+      grps <- res$group.levels
+      ncol <- input$pat.cols %||% 2
       direction <- input$pat.direction
       k <- input$pat.k
-      cc <- compute.centrality(res$cellchat.list[[g]]); req(cc)
-      cc <- identifyCommunicationPatterns(cc, pattern = direction, k = k,
-                                          width = 5, height = 9)
 
-      if (input$pat.plot == "heat") {
-        ComplexHeatmap::draw(ComplexHeatmap::Heatmap(
-          cc@netP$pattern[[direction]]$pattern$cell,
-          name = paste0(g, " cell"), column_title = g))
-        return(invisible())
-      }
-      if (input$pat.plot == "river") {
-        print(netAnalysis_river(cc, pattern = direction) + ggtitle(g))
-        return(invisible())
-      }
-      if (input$pat.plot == "dot") {
-        print(netAnalysis_dot(cc, pattern = direction) + ggtitle(g))
-      }
+      thunks <- lapply(grps, function(g) {
+        force(g)
+        function() {
+          cc <- compute.centrality(res$cellchat.list[[g]])
+          cc <- identifyCommunicationPatterns(cc, pattern = direction, k = k,
+                                              width = 5, height = 9)
+          if (input$pat.plot == "heat") {
+            ComplexHeatmap::draw(ComplexHeatmap::Heatmap(
+              cc@netP$pattern[[direction]]$pattern$cell,
+              name = paste0(g, " cell"), column_title = g))
+          } else if (input$pat.plot == "river") {
+            print(netAnalysis_river(cc, pattern = direction) + ggtitle(g))
+          } else if (input$pat.plot == "dot") {
+            print(netAnalysis_dot(cc, pattern = direction) + ggtitle(g))
+          }
+        }
+      })
+      plot.grid(thunks, ncol, titles = grps)
     }
 
     make.render.and.download(output, session, "pat.plot", "pat.download",
