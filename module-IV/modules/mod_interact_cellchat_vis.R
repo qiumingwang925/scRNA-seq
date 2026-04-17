@@ -268,11 +268,10 @@ mod.interact.cellchat.vis.ui <- function(id) {
                          selected = "heat"),
             conditionalPanel(
               condition = sprintf("input['%s'] != 'manifold'", ns("pat.plot")),
-              radioButtons(ns("pat.direction"), "Direction:",
-                           choices = c("Outgoing" = "outgoing", "Incoming" = "incoming"),
-                           selected = "outgoing"),
+              selectInput(ns("pat.group"), "Group:", choices = NULL),
               numericInput(ns("pat.k"), "Number of patterns (k):",
-                           value = 3, min = 2, max = 10, step = 1)
+                           value = 3, min = 2, max = 10, step = 1),
+              helpText("Shows outgoing and incoming patterns side by side.")
             ),
             conditionalPanel(
               condition = sprintf("input['%s'] == 'manifold'", ns("pat.plot")),
@@ -376,6 +375,14 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     wire.cell.type.selector(input, session, "global.targets", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.sources", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.targets", ident.choices, selected.all = TRUE)
+
+    observe({
+      res <- cellchat.data()
+      req(res)
+      updateSelectInput(session, "pat.group",
+                        choices = res$group.levels,
+                        selected = res$group.levels[1])
+    })
 
 
     # Auto-size plot output based on user width/height
@@ -684,28 +691,39 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         return(invisible())
       }
 
-      req(input$pat.direction, input$pat.k)
-      grps <- res$group.levels
-      ncol <- input$pat.cols %||% 2
-      direction <- input$pat.direction
+      req(input$pat.k, input$pat.group)
+      g <- input$pat.group
       k <- input$pat.k
+      ncol <- input$pat.cols %||% 2
 
-      items <- lapply(grps, function(g) {
-        force(g)
-        cc <- compute.centrality(res$cellchat.list[[g]])
-        cc <- identifyCommunicationPatterns(cc, pattern = direction, k = k,
-                                            width = 5, height = 9)
-        if (input$pat.plot == "heat") {
-          ComplexHeatmap::Heatmap(
-            cc@netP$pattern[[direction]]$pattern$cell,
-            name = paste0(g, " cell"), column_title = g)
-        } else if (input$pat.plot == "river") {
-          netAnalysis_river(cc, pattern = direction) + ggtitle(g)
-        } else if (input$pat.plot == "dot") {
-          netAnalysis_dot(cc, pattern = direction) + ggtitle(g)
-        }
-      })
-      plot.grid(items, ncol, titles = grps)
+      cc <- compute.centrality(res$cellchat.list[[g]]); req(cc)
+      cc.out <- identifyCommunicationPatterns(cc, pattern = "outgoing", k = k,
+                                              width = 5, height = 9)
+      cc.in  <- identifyCommunicationPatterns(cc, pattern = "incoming", k = k,
+                                              width = 5, height = 9)
+
+      label <- c(outgoing = paste0(g, " — outgoing"),
+                 incoming = paste0(g, " — incoming"))
+
+      items <- if (input$pat.plot == "heat") {
+        list(
+          ComplexHeatmap::Heatmap(cc.out@netP$pattern$outgoing$pattern$cell,
+            name = "outgoing", column_title = label[["outgoing"]]),
+          ComplexHeatmap::Heatmap(cc.in@netP$pattern$incoming$pattern$cell,
+            name = "incoming", column_title = label[["incoming"]])
+        )
+      } else if (input$pat.plot == "river") {
+        list(
+          netAnalysis_river(cc.out, pattern = "outgoing") + ggtitle(label[["outgoing"]]),
+          netAnalysis_river(cc.in,  pattern = "incoming") + ggtitle(label[["incoming"]])
+        )
+      } else if (input$pat.plot == "dot") {
+        list(
+          netAnalysis_dot(cc.out, pattern = "outgoing") + ggtitle(label[["outgoing"]]),
+          netAnalysis_dot(cc.in,  pattern = "incoming") + ggtitle(label[["incoming"]])
+        )
+      }
+      plot.grid(items, ncol, titles = c("outgoing", "incoming"))
     }
 
     make.render.and.download(output, session, "pat.plot", "pat.download",
