@@ -189,9 +189,62 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
     # ---------- Subtab thunks (Phase 5/6 will implement) ----------
 
     dot.thunk <- function() {
-      res <- liana.data(); req(res, input$dot.group)
-      plot.new()
-      title("CCC Dot Plot — will be implemented in Phase 5")
+      res <- liana.data(); req(res, input$dot.group, input$dot.size, input$dot.col)
+      g <- input$dot.group
+      tib <- res$liana.list[[g]]
+      req(tib)
+
+      size.info <- .liana.score.map[[input$dot.size]]
+      col.info  <- .liana.score.map[[input$dot.col]]
+      req(size.info, col.info)
+
+      validate(
+        need(size.info$col %in% colnames(tib),
+             paste0("Size metric '", input$dot.size, "' (column '", size.info$col,
+                    "') is not in the result. Rerun LIANA including the relevant method.")),
+        need(col.info$col %in% colnames(tib),
+             paste0("Colour metric '", input$dot.col, "' (column '", col.info$col,
+                    "') is not in the result. Rerun LIANA including the relevant method."))
+      )
+
+      tib.idents <- unique(c(tib$source, tib$target))
+      all.idents <- ident.choices()
+      s <- resolve.sel(tib.idents, input$dot.sources, all.idents)
+      t <- resolve.sel(tib.idents, input$dot.targets, all.idents)
+      validate(
+        need(!s$empty, paste0("Selected source(s) not present in '", g, "'.")),
+        need(!t$empty, paste0("Selected target(s) not present in '", g, "'."))
+      )
+
+      size.is.pval <- grepl("pvalue", size.info$col)
+      col.is.pval  <- grepl("pvalue", col.info$col)
+
+      p <- tryCatch(
+        liana::liana_dotplot(
+          tib,
+          source_groups = if (s$active) s$use else NULL,
+          target_groups = if (t$active) t$use else NULL,
+          ntop = input$dot.top,
+          specificity = size.info$col,
+          magnitude = col.info$col,
+          y.label = "Interactions (Ligand -> Receptor)",
+          size.label = size.info$label,
+          colour.label = col.info$label,
+          show_complex = TRUE,
+          size_range = c(2, 10),
+          invert_specificity = size.is.pval,
+          invert_magnitude = col.is.pval,
+          invert_function = function(x) -log10(x + 1e-10)
+        ) +
+          theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1,
+                                           color = "black", size = 13)) +
+          ggtitle(g),
+        error = function(e) {
+          ggplot() + theme_void() +
+            ggtitle(paste0(g, "\n[liana_dotplot: ", conditionMessage(e), "]"))
+        }
+      )
+      print(p)
     }
 
     heat.thunk <- function() {
