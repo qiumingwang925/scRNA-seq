@@ -464,13 +464,20 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
       pt <- input$zoom.plot
 
+      # Restrict a selection vector to idents actually present in this group's CellChat
+      match.idents <- function(cc, sel) {
+        if (is.null(sel)) return(NULL)
+        kept <- intersect(sel, levels(cc@idents))
+        if (length(kept) == 0) NULL else kept
+      }
+
       if (pt == "bubble") {
-        # netVisual_bubble returns ggplot — use patchwork for grid
         plots <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
           tryCatch({
             netVisual_bubble(cc, signaling = pw,
-                             sources.use = srcs, targets.use = tgts,
+                             sources.use = match.idents(cc, srcs),
+                             targets.use = match.idents(cc, tgts),
                              remove.isolate = FALSE) +
               ggtitle(g)
           }, error = function(e) {
@@ -482,11 +489,17 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       }
 
       if (pt == "violin") {
-        # plotGeneExpression returns ggplot / patchwork
+        # plotGeneExpression does not accept sources.use/targets.use; subset the obj
         plots <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
           tryCatch({
-            plotGeneExpression(cc, signaling = pw, enriched.only = TRUE) +
+            cc.sub <- cc
+            keep <- union(match.idents(cc, srcs), match.idents(cc, tgts))
+            if (!is.null(keep) && length(keep) > 0 && length(keep) < length(levels(cc@idents))) {
+              cells <- names(cc@idents)[cc@idents %in% keep]
+              cc.sub <- subsetCellChat(cc, cells.use = cells)
+            }
+            plotGeneExpression(cc.sub, signaling = pw, enriched.only = TRUE) +
               patchwork::plot_annotation(title = g)
           }, error = function(e) {
             ggplot() + theme_void() + ggtitle(paste0(g, "\n[", conditionMessage(e), "]"))
@@ -499,7 +512,12 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       if (pt == "pw.heat") {
         ht.list <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
-          netVisual_heatmap(cc, signaling = pw, color.heatmap = "Reds", title.name = g)
+          args <- list(object = cc, signaling = pw,
+                       color.heatmap = "Reds", title.name = g)
+          s <- match.idents(cc, srcs); t <- match.idents(cc, tgts)
+          if (!is.null(s)) args$sources.use <- s
+          if (!is.null(t)) args$targets.use <- t
+          do.call(netVisual_heatmap, args)
         })
         draw.heatmap.grid(ht.list, ncol, titles = grps)
         return(invisible())
@@ -512,18 +530,22 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
       plot.base.grid(grps, ncol, function(g) {
         cc <- res$cellchat.list[[g]]
+        s <- match.idents(cc, srcs); t <- match.idents(cc, tgts)
+        common <- list(object = cc, signaling = pw, layout = layout)
+        if (layout == "hierarchy") {
+          common$vertex.receiver <- hier.receiver(cc)
+        } else {
+          if (!is.null(s)) common$sources.use <- s
+          if (!is.null(t)) common$targets.use <- t
+        }
         if (startsWith(pt, "pw.")) {
-          args <- list(object = cc, signaling = pw, layout = layout)
-          if (layout == "hierarchy") args$vertex.receiver <- hier.receiver(cc)
-          do.call(netVisual_aggregate, args)
-          title(g, line = -1, outer = FALSE)
+          do.call(netVisual_aggregate, common)
         } else {
           req(lr)
-          args <- list(object = cc, signaling = pw, pairLR.use = lr, layout = layout)
-          if (layout == "hierarchy") args$vertex.receiver <- hier.receiver(cc)
-          do.call(netVisual_individual, args)
-          title(g, line = -1, outer = FALSE)
+          common$pairLR.use <- lr
+          do.call(netVisual_individual, common)
         }
+        title(g, line = -1, outer = FALSE)
       })
     }
 
