@@ -49,8 +49,12 @@ plot.base.grid <- function(groups, ncol, fn, mar = c(2, 2, 3, 2)) {
 
 # Wrap a thunk so renderPlot and download handler share identical logic
 make.render.and.download <- function(output, session, plot.id, dl.id, thunk,
-                                     width.in, height.in, filename.stem) {
-  output[[plot.id]] <- renderPlot({ thunk() }, res = 96)
+                                     width.in, height.in, filename.stem, trigger) {
+  output[[plot.id]] <- shiny::bindEvent(
+    renderPlot({ thunk() }, res = 96),
+    trigger(),
+    ignoreInit = TRUE, ignoreNULL = TRUE
+  )
   output[[dl.id]] <- downloadHandler(
     filename = function() paste0(filename.stem(), "_", Sys.Date(), ".png"),
     content = function(file) {
@@ -96,9 +100,12 @@ wire.cell.type.selector <- function(input, session, id, choices.reactive, select
   })
 }
 
-# Common sidebar controls (width / height / cols / download)
+# Common sidebar controls (plot button / cols / width / height / download)
 common.controls.ui <- function(ns, prefix, default.cols = 2, dl.label = "Download Figure") {
   tagList(
+    hr(),
+    actionButton(ns(paste0(prefix, ".plot.btn")), "Generate Plot",
+                 class = "btn-success", style = "width:100%"),
     hr(),
     h5("Figure controls"),
     numericInput(ns(paste0(prefix, ".cols")), "Columns per row:",
@@ -490,7 +497,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       global.thunk,
       width.in = reactive(input$global.width),
       height.in = reactive(input$global.height),
-      filename.stem = reactive(paste0("global_", input$global.plot, "_", input$global.measure)))
+      filename.stem = reactive(paste0("global_", input$global.plot, "_", input$global.measure)),
+      trigger = reactive(input$global.plot.btn))
 
     # =====================================================
     # Subtab 2: Zoom-in (pathway & LR)
@@ -598,7 +606,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       zoom.thunk,
       width.in = reactive(input$zoom.width),
       height.in = reactive(input$zoom.height),
-      filename.stem = reactive(paste0("zoom_", input$zoom.plot, "_", input$zoom.pathway)))
+      filename.stem = reactive(paste0("zoom_", input$zoom.plot, "_", input$zoom.pathway)),
+      trigger = reactive(input$zoom.plot.btn))
 
     # =====================================================
     # Subtab 3: Signaling role
@@ -646,7 +655,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       sig.thunk,
       width.in = reactive(input$sig.width),
       height.in = reactive(input$sig.height),
-      filename.stem = reactive(paste0("signaling_", input$sig.plot)))
+      filename.stem = reactive(paste0("signaling_", input$sig.plot)),
+      trigger = reactive(input$sig.plot.btn))
 
     # =====================================================
     # Subtab 4: Communication patterns
@@ -702,7 +712,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       pat.thunk,
       width.in = reactive(input$pat.width),
       height.in = reactive(input$pat.height),
-      filename.stem = reactive(paste0("patterns_", input$pat.plot)))
+      filename.stem = reactive(paste0("patterns_", input$pat.plot)),
+      trigger = reactive(input$pat.plot.btn))
 
   })
 }
