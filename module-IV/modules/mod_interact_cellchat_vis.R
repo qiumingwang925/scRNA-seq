@@ -343,9 +343,12 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         w <- input[[paste0(prefix, ".width")]]
         h <- input[[paste0(prefix, ".height")]]
         req(w, h)
-        plotOutput(ns(paste0(prefix, ".plot")),
-                   width = paste0(w * 96, "px"),
-                   height = paste0(h * 96, "px"))
+        shinycssloaders::withSpinner(
+          plotOutput(ns(paste0(prefix, ".plot")),
+                     width = paste0(w * 96, "px"),
+                     height = paste0(h * 96, "px")),
+          type = 6
+        )
       })
     }
 

@@ -5,6 +5,7 @@ source("../R/utils.R")
 
 load.or.install("shiny")
 load.or.install("shinyjs")
+load.or.install("shinycssloaders")
 load.or.install("Seurat")
 load.or.install("SeuratObject")
 load.or.install("ggplot2")
