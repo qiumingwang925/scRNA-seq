@@ -588,7 +588,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
             plot.new(); title(paste0(g, "\n(", missing.msg, ")")); return(invisible())
           }
           layout <- layout.map[[pt]]
-          common <- list(object = cc, signaling = pw, layout = layout)
+          common <- list(object = cc, signaling = pw, layout = layout, title.name = g)
           if (layout == "hierarchy") {
             lv <- levels(cc@idents)
             idx <- if (!is.null(tgts) && length(tgts) > 0) which(lv %in% tgts) else integer(0)
