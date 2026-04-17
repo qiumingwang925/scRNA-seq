@@ -32,8 +32,23 @@ get.categorical.meta <- function(obj) {
 # biomaRt is namespace-qualified so sourcing utils.R does not require biomaRt.
 
 .ensembl.mart <- function(dataset) {
-  biomaRt::useMart("ensembl", dataset = dataset,
-                   host = "https://dec2021.archive.ensembl.org/")
+  # dec2021 archive is the PI-pinned endpoint for reproducibility but it
+  # occasionally fails with "Failed to perform HTTP request". Fall through
+  # to the live site and the regional mirrors before giving up.
+  hosts <- c("https://dec2021.archive.ensembl.org/",
+             "https://www.ensembl.org/",
+             "https://useast.ensembl.org/",
+             "https://asia.ensembl.org/")
+  last.err <- NULL
+  for (host in hosts) {
+    mart <- tryCatch(
+      biomaRt::useMart("ensembl", dataset = dataset, host = host),
+      error = function(e) { last.err <<- e; NULL }
+    )
+    if (!is.null(mart)) return(mart)
+  }
+  stop("All Ensembl hosts failed for dataset '", dataset,
+       "'. Last error: ", conditionMessage(last.err))
 }
 
 # Deduplicate a getLDS result keeping one-to-one orthologs only

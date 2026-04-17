@@ -125,9 +125,13 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
             converted <- tryCatch(
               convert.mouse.to.human.rownames(obj.sub, gene.conv.cache),
               error = function(e) {
-                showNotification(paste("biomaRt conversion failed for", g, ":",
-                                       e$message),
-                                 type = "error", duration = NULL)
+                msg <- paste0("biomaRt conversion failed for ", g, ": ",
+                              e$message,
+                              "\nEnsembl may be unreachable. Try again shortly, ",
+                              "or switch Resource to 'MouseConsensus' to skip ",
+                              "conversion entirely.")
+                message(msg)
+                showNotification(msg, type = "error", duration = NULL)
                 NULL
               }
             )
