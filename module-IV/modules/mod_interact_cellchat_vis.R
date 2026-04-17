@@ -128,6 +128,7 @@ common.controls.ui <- function(ns, prefix, default.cols = 2, dl.label = "Downloa
 plot.grid <- function(items, ncol, titles = NULL) {
   plots <- lapply(seq_along(items), function(i) {
     item <- items[[i]]
+    title <- if (!is.null(titles) && length(titles) >= i) titles[i] else NULL
     tryCatch({
       if (inherits(item, c("ggplot", "patchwork", "gg"))) {
         item
@@ -135,7 +136,10 @@ plot.grid <- function(items, ncol, titles = NULL) {
         patchwork::wrap_elements(
           full = grid::grid.grabExpr(ComplexHeatmap::draw(item)))
       } else if (is.function(item)) {
-        ggplotify::as.ggplot(item)
+        p <- ggplotify::as.ggplot(item)
+        if (!is.null(title)) p <- p + ggtitle(title) +
+          theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+        p
       } else if (inherits(item, c("grob", "gTree"))) {
         patchwork::wrap_elements(full = item)
       } else {
@@ -143,7 +147,7 @@ plot.grid <- function(items, ncol, titles = NULL) {
           ggtitle(paste("Unhandled plot type:", paste(class(item), collapse = "/")))
       }
     }, error = function(e) {
-      label <- if (!is.null(titles)) titles[i] else paste("Panel", i)
+      label <- title %||% paste("Panel", i)
       ggplot() + theme_void() +
         ggtitle(paste0(label, "\n[", conditionMessage(e), "]"))
     })
@@ -588,7 +592,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
             plot.new(); title(paste0(g, "\n(", missing.msg, ")")); return(invisible())
           }
           layout <- layout.map[[pt]]
-          common <- list(object = cc, signaling = pw, layout = layout, title.name = g)
+          common <- list(object = cc, signaling = pw, layout = layout)
           if (layout == "hierarchy") {
             lv <- levels(cc@idents)
             idx <- if (!is.null(tgts) && length(tgts) > 0) which(lv %in% tgts) else integer(0)
