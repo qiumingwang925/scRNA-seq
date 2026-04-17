@@ -18,7 +18,7 @@ mod.interact.liana.comp.ui <- function(id) {
                                        "cellphonedb", "cytotalk", "call_cellchat"),
                            selected = c("natmi", "connectome", "sca", "cellphonedb")),
         numericInput(ns("workers"), "Parallel workers:",
-                     value = 4, min = 1, max = 16, step = 1),
+                     value = 1, min = 1, max = 16, step = 1),
         numericInput(ns("min.cells"), "Min cells per group:",
                      value = 10, min = 1, max = 10000, step = 1),
         hr(),

@@ -13,7 +13,7 @@ mod.interact.cellchat.comp.ui <- function(id) {
                      choices = c("RNA" = "RNA", "SCT" = "SCT"),
                      selected = "RNA"),
         numericInput(ns("workers"), "Parallel workers:",
-                     value = 4, min = 1, max = 16, step = 1),
+                     value = 1, min = 1, max = 16, step = 1),
         hr(),
         actionButton(ns("run"), "Run CellChat Analysis",
                      class = "btn-success", style = "width:100%"),
