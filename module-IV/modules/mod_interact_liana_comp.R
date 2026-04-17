@@ -143,8 +143,15 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
             data.mat <- GetAssayData(obj.sub, assay = assay.name, layer = "data")
             counts.mat <- tryCatch(
               GetAssayData(obj.sub, assay = assay.name, layer = "counts"),
-              error = function(e) data.mat
+              error = function(e) NULL
             )
+            # Slimmed-down objects return an empty 0x0 matrix rather than
+            # erroring; fall back to data in either case.
+            if (is.null(counts.mat) ||
+                nrow(counts.mat) != nrow(data.mat) ||
+                ncol(counts.mat) != ncol(data.mat)) {
+              counts.mat <- data.mat
+            }
             sce.obj <- SingleCellExperiment::SingleCellExperiment(
               assays = list(counts = counts.mat, logcounts = data.mat),
               colData = obj.sub@meta.data
@@ -153,8 +160,9 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
               as.character(obj.sub$liana_idents)
             sce.obj
           }, error = function(e) {
-            showNotification(paste("[", g, "] SCE build failed:", e$message),
-                             type = "error", duration = NULL)
+            msg <- paste0("[", g, "] SCE build failed: ", e$message)
+            message(msg)
+            showNotification(msg, type = "error", duration = NULL)
             NULL
           })
           if (is.null(sce)) next
