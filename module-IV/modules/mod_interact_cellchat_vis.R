@@ -400,6 +400,9 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           getMaxWeight(res$cellchat.list, attribute = c("idents", input$global.measure)),
           error = function(e) NULL
         )
+        vertex.weight.max <- max(unlist(lapply(res$cellchat.list, function(cc) {
+          as.numeric(table(cc@idents))
+        })))
         plot.base.grid(grps, ncol, function(g) {
           cc <- res$cellchat.list[[g]]
           s <- resolve.sel(cc, srcs, all.idents)
@@ -417,6 +420,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           names(cell.counts) <- levels(cc@idents)
           netVisual_circle(mat.sub,
                            vertex.weight = cell.counts[nodes],
+                           vertex.weight.max = vertex.weight.max,
                            weight.scale = TRUE, label.edge = FALSE,
                            edge.weight.max = if (!is.null(weight.max)) weight.max[2] else NULL,
                            title.name = paste0(g, " — ", input$global.measure))
