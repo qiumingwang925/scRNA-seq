@@ -450,12 +450,14 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       srcs <- nz(input$zoom.sources)
       tgts <- nz(input$zoom.targets)
 
-      # Hierarchy: vertex.receiver = indices of target idents within obj@idents levels
+      # Hierarchy: vertex.receiver = indices of target idents within obj@idents levels.
+      # Must be a strict subset (some idents remain as senders), otherwise CellChat's
+      # layout code fails with "wrong sign in 'by' argument".
       hier.receiver <- function(cc) {
         lv <- levels(cc@idents)
-        if (!is.null(tgts)) {
+        if (!is.null(tgts) && length(tgts) > 0) {
           idx <- which(lv %in% tgts)
-          if (length(idx) > 0) return(idx)
+          if (length(idx) > 0 && length(idx) < length(lv)) return(idx)
         }
         seq_len(ceiling(length(lv) / 2))
       }
