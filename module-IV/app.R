@@ -30,21 +30,27 @@ options(shiny.maxRequestSize = 5 * 1024^3)
 source("modules/mod_interact_upload.R")
 source("modules/mod_interact_cellchat_comp.R")
 source("modules/mod_interact_cellchat_vis.R")
+source("modules/mod_interact_liana_comp.R")
+source("modules/mod_interact_liana_vis.R")
 
 ui <- fluidPage(
   useShinyjs(),
   titlePanel("scNexus-Interact"),
   tabsetPanel(
     mod.interact.upload.ui("upload"),
-    mod.interact.cellchat.comp.ui("comp"),
-    mod.interact.cellchat.vis.ui("vis")
+    mod.interact.cellchat.comp.ui("cc.comp"),
+    mod.interact.cellchat.vis.ui("cc.vis"),
+    mod.interact.liana.comp.ui("liana.comp"),
+    mod.interact.liana.vis.ui("liana.vis")
   )
 )
 
 server <- function(input, output, session) {
   uploaded.seurat <- mod.interact.upload.server("upload")
-  cellchat.result <- mod.interact.cellchat.comp.server("comp", shared.data = uploaded.seurat)
-  mod.interact.cellchat.vis.server("vis", cellchat.input = cellchat.result)
+  cellchat.result <- mod.interact.cellchat.comp.server("cc.comp", shared.data = uploaded.seurat)
+  mod.interact.cellchat.vis.server("cc.vis", cellchat.input = cellchat.result)
+  liana.result <- mod.interact.liana.comp.server("liana.comp", shared.data = uploaded.seurat)
+  mod.interact.liana.vis.server("liana.vis", liana.input = liana.result)
 }
 
 shinyApp(ui, server)
