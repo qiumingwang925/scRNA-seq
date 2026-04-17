@@ -371,18 +371,18 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       list(active = TRUE, use = kept, empty = length(kept) == 0)
     }
 
-    placeholder.base <- function(g) {
+    placeholder.base <- function(g, msg = "selection absent in this group") {
       plot.new()
-      title(paste0(g, "\n(selection absent in this group)"))
+      title(paste0(g, "\n(", msg, ")"))
     }
-    placeholder.gg <- function(g) {
+    placeholder.gg <- function(g, msg = "selection absent in this group") {
       ggplot() + theme_void() +
-        ggtitle(paste0(g, "\n(selection absent in this group)"))
+        ggtitle(paste0(g, "\n(", msg, ")"))
     }
-    placeholder.ht <- function(g) {
+    placeholder.ht <- function(g, msg = "selection absent") {
       ComplexHeatmap::Heatmap(
         matrix(0, 1, 1, dimnames = list("-", "-")),
-        column_title = paste0(g, " (selection absent)"),
+        column_title = paste0(g, " (", msg, ")"),
         show_heatmap_legend = FALSE
       )
     }
@@ -493,11 +493,23 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       pt <- input$zoom.plot
       all.idents <- ident.choices()
 
+      # Check whether a pathway (and optional LR pair) exists in this group
+      pw.in <- function(cc) pw %in% cc@netP$pathways
+      lr.in <- function(cc) {
+        if (is.null(lr) || length(lr) == 0) return(TRUE)
+        enriched <- tryCatch(
+          extractEnrichedLR(cc, signaling = pw, geneLR.return = FALSE)$interaction_name,
+          error = function(e) character()
+        )
+        lr %in% enriched
+      }
+
       if (pt == "bubble") {
         plots <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
           s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
           if (s$empty || t$empty) return(placeholder.gg(g))
+          if (!pw.in(cc)) return(placeholder.gg(g, "pathway absent"))
           tryCatch({
             netVisual_bubble(cc, signaling = pw,
                              sources.use = if (s$active) s$use else NULL,
@@ -517,6 +529,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           cc <- res$cellchat.list[[g]]
           s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
           if (s$empty || t$empty) return(placeholder.gg(g))
+          if (!pw.in(cc)) return(placeholder.gg(g, "pathway absent"))
           tryCatch({
             cc.sub <- cc
             keep <- union(if (s$active) s$use else NULL,
@@ -540,11 +553,13 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           cc <- res$cellchat.list[[g]]
           s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
           if (s$empty || t$empty) return(placeholder.ht(g))
+          if (!pw.in(cc)) return(placeholder.ht(g, "pathway absent"))
           args <- list(object = cc, signaling = pw,
                        color.heatmap = "Reds", title.name = g)
           if (s$active) args$sources.use <- s$use
           if (t$active) args$targets.use <- t$use
-          do.call(netVisual_heatmap, args)
+          tryCatch(do.call(netVisual_heatmap, args),
+                   error = function(e) placeholder.ht(g, conditionMessage(e)))
         })
         draw.heatmap.grid(ht.list, ncol, titles = grps)
         return(invisible())
@@ -554,11 +569,14 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       layout.map <- c(pw.hier = "hierarchy", pw.circle = "circle", pw.chord = "chord",
                       lr.hier = "hierarchy", lr.circle = "circle", lr.chord = "chord")
       layout <- layout.map[[pt]]
+      is.lr <- startsWith(pt, "lr.")
 
       plot.base.grid(grps, ncol, function(g) {
         cc <- res$cellchat.list[[g]]
         s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
         if (s$empty || t$empty) { placeholder.base(g); return(invisible()) }
+        if (!pw.in(cc)) { placeholder.base(g, "pathway absent"); return(invisible()) }
+        if (is.lr && !lr.in(cc)) { placeholder.base(g, "L-R pair absent"); return(invisible()) }
 
         common <- list(object = cc, signaling = pw, layout = layout)
         if (layout == "hierarchy") {
@@ -567,12 +585,12 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           if (s$active) common$sources.use <- s$use
           if (t$active) common$targets.use <- t$use
         }
-        if (startsWith(pt, "pw.")) {
-          do.call(netVisual_aggregate, common)
-        } else {
+        if (is.lr) {
           req(lr)
           common$pairLR.use <- lr
           do.call(netVisual_individual, common)
+        } else {
+          do.call(netVisual_aggregate, common)
         }
         title(g, line = -1, outer = FALSE)
       })
