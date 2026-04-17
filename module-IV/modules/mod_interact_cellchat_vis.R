@@ -421,6 +421,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           netVisual_circle(mat.sub,
                            vertex.weight = cell.counts[nodes],
                            vertex.weight.max = vertex.weight.max,
+                           vertex.size.max = 15,
                            weight.scale = TRUE, label.edge = FALSE,
                            edge.weight.max = if (!is.null(weight.max)) weight.max[2] else NULL,
                            title.name = paste0(g, " — ", input$global.measure))
