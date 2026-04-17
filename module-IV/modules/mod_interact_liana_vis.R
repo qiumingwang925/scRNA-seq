@@ -249,14 +249,84 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
 
     heat.thunk <- function() {
       res <- liana.data(); req(res)
-      plot.new()
-      title("CCC Freq Heatmap — will be implemented in Phase 6")
+      grps <- res$group.levels
+      ncol <- input$heat.cols %||% 2
+      all.idents <- ident.choices()
+      sel <- input$heat.idents
+      alpha <- input$heat.alpha %||% 0.01
+
+      items <- lapply(grps, function(g) {
+        force(g)
+        tib <- res$liana.list[[g]]
+        if (!"aggregate_rank" %in% colnames(tib)) {
+          return(function() placeholder.base(g,
+            "aggregate_rank absent — rerun with >=2 methods"))
+        }
+        tib.idents <- unique(c(tib$source, tib$target))
+        s <- resolve.sel(tib.idents, sel, all.idents)
+        if (s$empty) {
+          return(function() placeholder.base(g, "populations absent"))
+        }
+        ids <- if (s$active) s$use else tib.idents
+        filtered <- tib[tib$aggregate_rank <= alpha &
+                          tib$source %in% ids &
+                          tib$target %in% ids, ]
+        if (nrow(filtered) == 0) {
+          return(function() placeholder.base(g,
+            paste0("no rows passed aggregate_rank <= ", alpha)))
+        }
+        function() {
+          ht <- tryCatch(liana::heat_freq(filtered),
+                         error = function(e) NULL)
+          if (is.null(ht)) {
+            placeholder.base(g, "heat_freq failed")
+            return(invisible())
+          }
+          ComplexHeatmap::draw(ht)
+        }
+      })
+      plot.grid(items, ncol, titles = grps)
     }
 
     chord.thunk <- function() {
       res <- liana.data(); req(res)
-      plot.new()
-      title("CCC Freq Chord Diagram — will be implemented in Phase 6")
+      grps <- res$group.levels
+      ncol <- input$chord.cols %||% 2
+      all.idents <- ident.choices()
+      srcs <- input$chord.sources
+      tgts <- input$chord.targets
+      alpha <- input$chord.alpha %||% 0.01
+
+      items <- lapply(grps, function(g) {
+        force(g)
+        tib <- res$liana.list[[g]]
+        tib.idents <- unique(c(tib$source, tib$target))
+        s <- resolve.sel(tib.idents, srcs, all.idents)
+        t <- resolve.sel(tib.idents, tgts, all.idents)
+
+        function() {
+          if (s$empty || t$empty) {
+            placeholder.base(g, "selection absent in this group")
+            return(invisible())
+          }
+          if (!"aggregate_rank" %in% colnames(tib)) {
+            placeholder.base(g, "aggregate_rank absent — rerun with >=2 methods")
+            return(invisible())
+          }
+          filtered <- tib[tib$aggregate_rank <= alpha, ]
+          if (nrow(filtered) == 0) {
+            placeholder.base(g, paste0("no rows passed aggregate_rank <= ", alpha))
+            return(invisible())
+          }
+          tryCatch(
+            liana::chord_freq(filtered,
+                              source_groups = if (s$active) s$use else NULL,
+                              target_groups = if (t$active) t$use else NULL),
+            error = function(e) placeholder.base(g, conditionMessage(e))
+          )
+        }
+      })
+      plot.grid(items, ncol, titles = grps)
     }
 
     make.render.and.download(output, session, "dot.plot", "dot.download",
