@@ -361,10 +361,37 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     # Subtab 1: Global network
     # =====================================================
 
+    # Resolve a selector value into: filter active? which values to use? is the
+    # intersection with this group empty?
+    resolve.sel <- function(cc, sel, all.idents) {
+      if (is.null(sel) || length(sel) == 0 || setequal(sel, all.idents)) {
+        return(list(active = FALSE, use = NULL, empty = FALSE))
+      }
+      kept <- intersect(sel, levels(cc@idents))
+      list(active = TRUE, use = kept, empty = length(kept) == 0)
+    }
+
+    placeholder.base <- function(g) {
+      plot.new()
+      title(paste0(g, "\n(selection absent in this group)"))
+    }
+    placeholder.gg <- function(g) {
+      ggplot() + theme_void() +
+        ggtitle(paste0(g, "\n(selection absent in this group)"))
+    }
+    placeholder.ht <- function(g) {
+      ComplexHeatmap::Heatmap(
+        matrix(0, 1, 1, dimnames = list("-", "-")),
+        column_title = paste0(g, " (selection absent)"),
+        show_heatmap_legend = FALSE
+      )
+    }
+
     global.thunk <- function() {
       res <- cellchat.data(); req(res, input$global.plot, input$global.measure)
       grps <- res$group.levels
       ncol <- input$global.cols %||% 2
+      all.idents <- ident.choices()
       srcs <- input$global.sources
       tgts <- input$global.targets
 
@@ -375,13 +402,13 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         )
         plot.base.grid(grps, ncol, function(g) {
           cc <- res$cellchat.list[[g]]
+          s <- resolve.sel(cc, srcs, all.idents)
+          t <- resolve.sel(cc, tgts, all.idents)
+          if (s$empty || t$empty) { placeholder.base(g); return(invisible()) }
+
           mat <- if (input$global.measure == "count") cc@net$count else cc@net$weight
-          s.keep <- intersect(srcs, rownames(mat))
-          t.keep <- intersect(tgts, colnames(mat))
-          validate(
-            need(length(s.keep) >= 1, "Select at least 1 source present in this group."),
-            need(length(t.keep) >= 1, "Select at least 1 target present in this group.")
-          )
+          s.keep <- if (s$active) s$use else rownames(mat)
+          t.keep <- if (t$active) t$use else colnames(mat)
           nodes <- union(s.keep, t.keep)
           mat.sub <- mat[nodes, nodes, drop = FALSE]
           mat.sub[!(rownames(mat.sub) %in% s.keep), ] <- 0
@@ -397,16 +424,13 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       } else {
         ht.list <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
+          s <- resolve.sel(cc, srcs, all.idents)
+          t <- resolve.sel(cc, tgts, all.idents)
+          if (s$empty || t$empty) return(placeholder.ht(g))
+
           mat <- if (input$global.measure == "count") cc@net$count else cc@net$weight
-          s.keep <- intersect(srcs, rownames(mat))
-          t.keep <- intersect(tgts, colnames(mat))
-          if (length(s.keep) == 0 || length(t.keep) == 0) {
-            return(ComplexHeatmap::Heatmap(
-              matrix(0, 1, 1, dimnames = list("-", "-")),
-              column_title = paste0(g, " (no matching cells)"),
-              show_heatmap_legend = FALSE
-            ))
-          }
+          s.keep <- if (s$active) s$use else rownames(mat)
+          t.keep <- if (t$active) t$use else colnames(mat)
           sub <- mat[s.keep, t.keep, drop = FALSE]
           vmax <- max(sub, na.rm = TRUE)
           col.fn <- circlize::colorRamp2(
@@ -463,21 +487,17 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       }
 
       pt <- input$zoom.plot
-
-      # Restrict a selection vector to idents actually present in this group's CellChat
-      match.idents <- function(cc, sel) {
-        if (is.null(sel)) return(NULL)
-        kept <- intersect(sel, levels(cc@idents))
-        if (length(kept) == 0) NULL else kept
-      }
+      all.idents <- ident.choices()
 
       if (pt == "bubble") {
         plots <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
+          s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
+          if (s$empty || t$empty) return(placeholder.gg(g))
           tryCatch({
             netVisual_bubble(cc, signaling = pw,
-                             sources.use = match.idents(cc, srcs),
-                             targets.use = match.idents(cc, tgts),
+                             sources.use = if (s$active) s$use else NULL,
+                             targets.use = if (t$active) t$use else NULL,
                              remove.isolate = FALSE) +
               ggtitle(g)
           }, error = function(e) {
@@ -489,13 +509,15 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       }
 
       if (pt == "violin") {
-        # plotGeneExpression does not accept sources.use/targets.use; subset the obj
         plots <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
+          s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
+          if (s$empty || t$empty) return(placeholder.gg(g))
           tryCatch({
             cc.sub <- cc
-            keep <- union(match.idents(cc, srcs), match.idents(cc, tgts))
-            if (!is.null(keep) && length(keep) > 0 && length(keep) < length(levels(cc@idents))) {
+            keep <- union(if (s$active) s$use else NULL,
+                          if (t$active) t$use else NULL)
+            if (length(keep) > 0 && length(keep) < length(levels(cc@idents))) {
               cells <- names(cc@idents)[cc@idents %in% keep]
               cc.sub <- subsetCellChat(cc, cells.use = cells)
             }
@@ -512,11 +534,12 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       if (pt == "pw.heat") {
         ht.list <- lapply(grps, function(g) {
           cc <- res$cellchat.list[[g]]
+          s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
+          if (s$empty || t$empty) return(placeholder.ht(g))
           args <- list(object = cc, signaling = pw,
                        color.heatmap = "Reds", title.name = g)
-          s <- match.idents(cc, srcs); t <- match.idents(cc, tgts)
-          if (!is.null(s)) args$sources.use <- s
-          if (!is.null(t)) args$targets.use <- t
+          if (s$active) args$sources.use <- s$use
+          if (t$active) args$targets.use <- t$use
           do.call(netVisual_heatmap, args)
         })
         draw.heatmap.grid(ht.list, ncol, titles = grps)
@@ -530,13 +553,15 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
       plot.base.grid(grps, ncol, function(g) {
         cc <- res$cellchat.list[[g]]
-        s <- match.idents(cc, srcs); t <- match.idents(cc, tgts)
+        s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
+        if (s$empty || t$empty) { placeholder.base(g); return(invisible()) }
+
         common <- list(object = cc, signaling = pw, layout = layout)
         if (layout == "hierarchy") {
           common$vertex.receiver <- hier.receiver(cc)
         } else {
-          if (!is.null(s)) common$sources.use <- s
-          if (!is.null(t)) common$targets.use <- t
+          if (s$active) common$sources.use <- s$use
+          if (t$active) common$targets.use <- t$use
         }
         if (startsWith(pt, "pw.")) {
           do.call(netVisual_aggregate, common)
