@@ -28,6 +28,7 @@ load.or.install("liana", github.url = "saezlab/liana")
 options(shiny.maxRequestSize = 5 * 1024^3)
 
 source("modules/mod_interact_upload.R")
+source("modules/mod_interact_vis_helpers.R")
 source("modules/mod_interact_cellchat_comp.R")
 source("modules/mod_interact_cellchat_vis.R")
 source("modules/mod_interact_liana_comp.R")
