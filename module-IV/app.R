@@ -18,6 +18,13 @@ load.or.install("NMF")
 load.or.install("ggalluvial")
 load.or.install("CellChat", github.url = "jinworks/CellChat")
 
+# LIANA sub-module dependencies
+load.or.install("digest")
+load.or.install("entropy")
+load.or.install("biomaRt")
+load.or.install("OmnipathR")
+load.or.install("liana", github.url = "saezlab/liana")
+
 options(shiny.maxRequestSize = 5 * 1024^3)
 
 source("modules/mod_interact_upload.R")
