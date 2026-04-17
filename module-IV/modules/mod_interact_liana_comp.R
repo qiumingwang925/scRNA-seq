@@ -135,6 +135,30 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
             obj.sub <- converted$obj
           }
 
+          # Build a SingleCellExperiment manually using the Seurat v5 `layer` API.
+          # liana_wrap on a Seurat object calls GetAssayData(slot=...), which is
+          # defunct under SeuratObject >= 5.0, so we sidestep that code path.
+          incProgress(step * 0.1, detail = paste0("[", g, "] Seurat -> SCE"))
+          sce <- tryCatch({
+            data.mat <- GetAssayData(obj.sub, assay = assay.name, layer = "data")
+            counts.mat <- tryCatch(
+              GetAssayData(obj.sub, assay = assay.name, layer = "counts"),
+              error = function(e) data.mat
+            )
+            sce.obj <- SingleCellExperiment::SingleCellExperiment(
+              assays = list(counts = counts.mat, logcounts = data.mat),
+              colData = obj.sub@meta.data
+            )
+            SingleCellExperiment::colLabels(sce.obj) <-
+              as.character(obj.sub$liana_idents)
+            sce.obj
+          }, error = function(e) {
+            showNotification(paste("[", g, "] SCE build failed:", e$message),
+                             type = "error", duration = NULL)
+            NULL
+          })
+          if (is.null(sce)) next
+
           # Run each method separately so one bad method doesn't collapse the group
           incProgress(step * 0.3, detail = paste0(
             "[", g, "] running LIANA (", length(methods), " methods)"))
@@ -142,12 +166,10 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
           for (m in methods) {
             tib <- tryCatch({
               result <- liana::liana_wrap(
-                sce = obj.sub,
+                sce = sce,
                 method = m,
                 resource = resource,
-                idents_col = "liana_idents",
-                assay = assay.name,
-                slot = "data"
+                assay.type = "logcounts"
               )
               if (is.list(result) && !inherits(result, "data.frame") &&
                   !inherits(result, "tbl")) {
