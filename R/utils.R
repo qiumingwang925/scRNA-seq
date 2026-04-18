@@ -31,24 +31,43 @@ get.categorical.meta <- function(obj) {
 # --- Mouse / human ortholog conversion (for LIANA non-MouseConsensus resources) ---
 # biomaRt is namespace-qualified so sourcing utils.R does not require biomaRt.
 
-.ensembl.mart <- function(dataset) {
-  # dec2021 archive is the PI-pinned endpoint for reproducibility but it
-  # occasionally fails with "Failed to perform HTTP request". Fall through
-  # to the live site and the regional mirrors before giving up.
-  hosts <- c("https://dec2021.archive.ensembl.org/",
-             "https://www.ensembl.org/",
-             "https://useast.ensembl.org/",
-             "https://asia.ensembl.org/")
+.ensembl.hosts <- c(
+  "https://dec2021.archive.ensembl.org/",
+  "https://www.ensembl.org/",
+  "https://useast.ensembl.org/",
+  "https://asia.ensembl.org/"
+)
+
+# Run `fn(mouse.mart, human.mart)` against each Ensembl host in turn. If any
+# host's end-to-end attempt (useMart + whatever fn does) succeeds, return it.
+# Only raise if every host fails end-to-end. This is necessary because useMart
+# can succeed on a host whose BioMart then returns 500 on the subsequent
+# getLDS query — the per-host tryCatch must wrap both calls together.
+.with.ensembl.hosts <- function(fn) {
   last.err <- NULL
-  for (host in hosts) {
-    mart <- tryCatch(
-      biomaRt::useMart("ensembl", dataset = dataset, host = host),
-      error = function(e) { last.err <<- e; NULL }
-    )
-    if (!is.null(mart)) return(mart)
+  for (host in .ensembl.hosts) {
+    result <- tryCatch({
+      mouse <- biomaRt::useMart("ensembl",
+                                dataset = "mmusculus_gene_ensembl",
+                                host = host)
+      human <- biomaRt::useMart("ensembl",
+                                dataset = "hsapiens_gene_ensembl",
+                                host = host)
+      fn(mouse, human)
+    }, error = function(e) {
+      last.err <<- e
+      NULL
+    })
+    if (!is.null(result)) return(result)
   }
-  stop("All Ensembl hosts failed for dataset '", dataset,
-       "'. Last error: ", conditionMessage(last.err))
+  stop("All Ensembl hosts failed. Last error: ",
+       conditionMessage(last.err %||% simpleError("unknown")))
+}
+
+# Tiny null-coalesce so utils.R is self-contained (the vis-helper copy of
+# `%||%` isn't sourced at the point `.with.ensembl.hosts` runs).
+if (!exists("%||%", mode = "function")) {
+  `%||%` <- function(a, b) if (!is.null(a)) a else b
 }
 
 # Deduplicate a getLDS result keeping one-to-one orthologs only
@@ -70,17 +89,17 @@ convert.mouse.to.human.rownames <- function(obj, cache.env = NULL) {
   gene.map <- if (!is.null(cache.env) && exists(cache.key, envir = cache.env)) {
     get(cache.key, envir = cache.env)
   } else {
-    mouse <- .ensembl.mart("mmusculus_gene_ensembl")
-    human <- .ensembl.mart("hsapiens_gene_ensembl")
-    m2h <- biomaRt::getLDS(
-      attributes = c("mgi_symbol"),
-      filters = "mgi_symbol",
-      values = mouse.genes,
-      mart = mouse,
-      attributesL = c("hgnc_symbol"),
-      martL = human,
-      uniqueRows = TRUE
-    )
+    m2h <- .with.ensembl.hosts(function(mouse, human) {
+      biomaRt::getLDS(
+        attributes = c("mgi_symbol"),
+        filters = "mgi_symbol",
+        values = mouse.genes,
+        mart = mouse,
+        attributesL = c("hgnc_symbol"),
+        martL = human,
+        uniqueRows = TRUE
+      )
+    })
     m2h <- .dedup.ortho(m2h, "MGI.symbol", "HGNC.symbol")
     if (!is.null(cache.env)) assign(cache.key, m2h, envir = cache.env)
     m2h
@@ -114,17 +133,17 @@ convert.human.to.mouse.lr <- function(df.human, cache.env = NULL) {
   gene.map <- if (!is.null(cache.env) && exists(cache.key, envir = cache.env)) {
     get(cache.key, envir = cache.env)
   } else {
-    mouse <- .ensembl.mart("mmusculus_gene_ensembl")
-    human <- .ensembl.mart("hsapiens_gene_ensembl")
-    h2m <- biomaRt::getLDS(
-      attributes = c("hgnc_symbol"),
-      filters = "hgnc_symbol",
-      values = human.genes,
-      mart = human,
-      attributesL = c("mgi_symbol"),
-      martL = mouse,
-      uniqueRows = TRUE
-    )
+    h2m <- .with.ensembl.hosts(function(mouse, human) {
+      biomaRt::getLDS(
+        attributes = c("hgnc_symbol"),
+        filters = "hgnc_symbol",
+        values = human.genes,
+        mart = human,
+        attributesL = c("mgi_symbol"),
+        martL = mouse,
+        uniqueRows = TRUE
+      )
+    })
     h2m <- .dedup.ortho(h2m, "HGNC.symbol", "MGI.symbol")
     if (!is.null(cache.env)) assign(cache.key, h2m, envir = cache.env)
     h2m
