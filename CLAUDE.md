@@ -1,11 +1,11 @@
 # scRNA-seq Analysis Platform
 
-Interactive Shiny-based platform for single-cell RNA sequencing analysis, progressing from individual-sample processing (Module I) through combined multi-sample analysis (Module II).
+Interactive Shiny-based platform for single-cell RNA sequencing analysis, covering individual-sample processing (Module I), multi-sample integration (Module II), post-annotation exploration (Module III), and cell-cell communication (Module IV).
 
 ## Project Structure
 
 - `R/` — Shared code used by all modules
-  - `utils.R` — Package management (`load.or.install`) and common setup
+  - `utils.R` — Package management (`load.or.install`), categorical-meta helper, mouse/human ortholog conversion helpers used by Module IV
   - `mod_save_config.R` — Reusable Shiny sub-module for configurable Seurat object export
 - `module-I/` — Shiny app for individual-sample scRNA-seq analysis
   - `modules/` — Shiny module files (one per pipeline step)
@@ -15,6 +15,9 @@ Interactive Shiny-based platform for single-cell RNA sequencing analysis, progre
   - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
 - `module-III/` — Shiny app for post-annotation exploration and visualization
   - `modules/` — Shiny module files (one per exploration feature)
+  - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
+- `module-IV/` — Shiny app for cell-cell communication analysis (CellChat + LIANA)
+  - `modules/` — Shiny module files (upload, CellChat/LIANA compute + vis, shared vis helpers)
   - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
 - `test-data/` — Sample datasets (Cell Ranger MEX format and pre-processed Seurat .rds objects)
 - `manuscript_R/` — Standalone R scripts for manuscript figures and analysis (not part of the Shiny app)
@@ -92,6 +95,35 @@ A modular Shiny web application for exploring and visualizing annotated scRNA-se
 - Input: Annotated Seurat .rds objects (output of Module II), slimmed down (data slot only)
 - All tabs are available once data is uploaded (flat navigation, not a linear pipeline)
 
+## Module IV: Cell-Cell Communication
+
+A modular Shiny web application offering two parallel cell-cell communication engines — CellChat and LIANA — over a shared uploaded object:
+
+**Upload → Run CellChat → Visualize CellChat → Run LIANA → Visualize LIANA**
+
+### Active Modules (in `module-IV/modules/`)
+
+| Module | File | Purpose |
+|--------|------|---------|
+| Upload | `mod_interact_upload.R` | Load annotated Seurat .rds, JoinLayers, validate data slot, assign user-picked metadata column as `group` |
+| Vis helpers | `mod_interact_vis_helpers.R` | Shared UI + render helpers — `plot.grid`, `resolve.sel`, `cell.type.selector.*`, `common.controls.ui`, `make.render.and.download`, typed placeholders. Sourced before both vis modules |
+| CellChat compute | `mod_interact_cellchat_comp.R` | Per-group CellChat pipeline on Secreted Signaling DB, followed by `mergeCellChat` for cross-group visualization |
+| CellChat vis | `mod_interact_cellchat_vis.R` | Four subtabs: Global Network, Zoom-in (pathway / L-R pair), Signaling-Focused, Communication Patterns (incl. Manifold via `computeNetSimilarityPairwise` + `netEmbedding`) |
+| LIANA compute | `mod_interact_liana_comp.R` | Per-group multi-method LIANA pipeline (`natmi`, `connectome`, `logfc`, `sca`, `cellphonedb`, `cytotalk`, `call_cellchat`) with lazy mouse ↔ human ortholog mapping when the chosen resource is not `MouseConsensus` |
+| LIANA vis | `mod_interact_liana_vis.R` | Three subtabs: CCC Dot Plot (single-group), CCC Freq Heatmap (N-group grid via `liana::heat_freq`), CCC Freq Chord Diagram (N-group grid via `liana::chord_freq`) |
+
+### Architecture
+
+- Each module is a Shiny module (namespaced UI + server pair)
+- A single upload is shared by all four downstream tabs via `shared.data`
+- Compute modules return a reactive **result list** (not a Seurat object) holding per-group results + metadata, plus a `.rds` download
+- Vis modules consume the upstream compute result first, falling back to a user-uploaded `.rds` for standalone use
+- Every vis panel is gated behind a "Generate Plot" button (`shiny::bindEvent`), so parameter tweaks queue up without triggering expensive re-renders
+- `plot.grid` routes heterogeneous panel items through the right render path: ggplots pass straight through, ComplexHeatmap via `grid::grid.grabExpr`, base graphics (CellChat circle/chord/hierarchy, LIANA chord) via `ggplotify::as.ggplot` so CellChat's internal `par(mfrow)` layout doesn't collide with the outer grid
+- Input: annotated Seurat .rds files (output of Module II); the upload also tolerates Module III's slimmed `data`-only export
+- Output: CellChat result list (`.rds`) or LIANA result list (`.rds`)
+- Ensembl access (for ortholog conversion) uses `.with.ensembl.hosts` in `R/utils.R`, which tries `dec2021.archive` → `www.ensembl.org` → `useast` → `asia` end-to-end under a single tryCatch and only raises if every host fails
+
 ## Tech Stack
 
 - **Language:** R
@@ -99,6 +131,7 @@ A modular Shiny web application for exploring and visualizing annotated scRNA-se
 - **Core packages:** Seurat, DoubletFinder, ggplot2, plotly, tidyverse, glmGamPoi, shinyFiles, shinyjs, ggpubr, shinycssloaders
 - **Module II additional packages:** SeuratWrappers, SeuratObject, presto, cluster, lisi, Matrix
 - **Module III additional packages:** enrichR, openxlsx
+- **Module IV additional packages:** CellChat (jinworks/CellChat), ComplexHeatmap, NMF, ggalluvial, ggplotify, future, liana (saezlab/liana), OmnipathR, biomaRt, entropy, digest
 
 ## Naming Conventions
 
@@ -143,12 +176,12 @@ return(list(seurat.obj = <reactive>, completed = <reactiveVal>))
 - Each pipeline step is a `tabPanel` within the main `tabsetPanel`
 - Sections within tabs are wrapped in `wellPanel`
 
-## Planned Modules
+## Modules
 
 - **Module I** — Individual-sample analysis (active)
 - **Module II** — Multi-sample integration and annotation (active)
 - **Module III** — Post-annotation exploration and visualization (active)
-- **Module IV** — TBD (future)
+- **Module IV** — Cell-cell communication via CellChat + LIANA (active)
 
-The platform is designed to progress from individual-sample processing to combined multi-sample analysis across the four modules.
+The platform progresses from individual-sample processing through integrated multi-sample analysis to downstream exploration and cell-cell communication.
 
