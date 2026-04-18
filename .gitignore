@@ -38,3 +38,6 @@ Thumbs.db
 
 # Environment
 .env
+
+# OmnipathR runtime logs (created on package load)
+omnipathr-log/

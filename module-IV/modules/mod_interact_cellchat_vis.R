@@ -1,9 +1,9 @@
 ## ABOUTME: CellChat visualization module with four subtabs: global network, pathway/LR
 ## ABOUTME: zoom-in, signaling role, and communication patterns. All plots render per-group.
 
-`%||%` <- function(a, b) if (!is.null(a)) a else b
-
-# ---------- Helpers ----------
+# Shared helpers (%||%, plot.grid, make.render.and.download, cell.type.selector.*,
+# common.controls.ui, resolve.sel, placeholder.*) come from mod_interact_vis_helpers.R
+# which app.R sources before this file.
 
 check.python.umap <- function() {
   if (!requireNamespace("reticulate", quietly = TRUE)) {
@@ -16,143 +16,6 @@ check.python.umap <- function() {
                             "Install via: reticulate::py_install('umap-learn').")))
   }
   list(ok = TRUE, msg = "")
-}
-
-# Arrange a list of ComplexHeatmap objects in a patchwork grid. Tolerates heatmaps
-# with differing row/column dimensions (which horizontal `+` concatenation cannot).
-draw.heatmap.grid <- function(ht.list, ncol, titles = NULL) {
-  plots <- lapply(seq_along(ht.list), function(i) {
-    tryCatch({
-      patchwork::wrap_elements(grid::grid.grabExpr(ComplexHeatmap::draw(ht.list[[i]])))
-    }, error = function(e) {
-      label <- if (!is.null(titles)) titles[i] else paste("Panel", i)
-      ggplot() + theme_void() +
-        ggtitle(paste0(label, "\n[", conditionMessage(e), "]"))
-    })
-  })
-  print(patchwork::wrap_plots(plots, ncol = ncol))
-}
-
-# Arrange a base-graphics render function (called per group) in a grid layout
-plot.base.grid <- function(groups, ncol, fn, mar = c(2, 2, 3, 2)) {
-  n <- length(groups)
-  nrow <- ceiling(n / ncol)
-  old <- par(mfrow = c(nrow, ncol), xpd = TRUE, mar = mar, no.readonly = TRUE)
-  on.exit(par(old))
-  for (g in groups) {
-    tryCatch(fn(g), error = function(e) {
-      plot.new()
-      title(paste0(g, "\n[", conditionMessage(e), "]"))
-    })
-  }
-}
-
-# Wrap a thunk so renderPlot and download handler share identical logic
-make.render.and.download <- function(output, session, plot.id, dl.id, thunk,
-                                     width.in, height.in, filename.stem, trigger) {
-  output[[plot.id]] <- shiny::bindEvent(
-    renderPlot({ thunk() }, res = 96),
-    trigger(),
-    ignoreInit = TRUE, ignoreNULL = TRUE
-  )
-  output[[dl.id]] <- downloadHandler(
-    filename = function() paste0(filename.stem(), "_", Sys.Date(), ".png"),
-    content = function(file) {
-      png(file, width = width.in() * 96, height = height.in() * 96, res = 96)
-      tryCatch(thunk(), error = function(e) {
-        plot.new()
-        title(paste("Render failed:", conditionMessage(e)))
-      })
-      dev.off()
-    }
-  )
-}
-
-# Cell-type selector matching Module III: selectInput(multiple) + Select All / Clear
-cell.type.selector.ui <- function(ns, id, label = "Cell Type(s):") {
-  tagList(
-    selectInput(ns(id), label, choices = NULL, multiple = TRUE),
-    fluidRow(
-      column(6, actionButton(ns(paste0(id, ".all")), "Select All",
-                             class = "btn-info", style = "width:100%")),
-      column(6, actionButton(ns(paste0(id, ".clear")), "Clear",
-                             class = "btn-default", style = "width:100%"))
-    )
-  )
-}
-
-wire.cell.type.selector <- function(input, session, id, choices.reactive, selected.all = TRUE) {
-  observe({
-    choices <- choices.reactive()
-    req(choices)
-    updateSelectInput(session, id, choices = choices,
-                      selected = if (selected.all) choices else character(0))
-  })
-  observeEvent(input[[paste0(id, ".all")]], {
-    choices <- choices.reactive()
-    req(choices)
-    updateSelectInput(session, id, choices = choices, selected = choices)
-  })
-  observeEvent(input[[paste0(id, ".clear")]], {
-    choices <- choices.reactive()
-    req(choices)
-    updateSelectInput(session, id, choices = choices, selected = character(0))
-  })
-}
-
-# Common sidebar controls (plot button / cols / width / height / download)
-common.controls.ui <- function(ns, prefix, default.cols = 2, dl.label = "Download Figure") {
-  tagList(
-    hr(),
-    actionButton(ns(paste0(prefix, ".plot.btn")), "Generate Plot",
-                 class = "btn-success", style = "width:100%"),
-    hr(),
-    h5("Figure controls"),
-    numericInput(ns(paste0(prefix, ".cols")), "Columns per row:",
-                 value = default.cols, min = 1, max = 6, step = 1),
-    numericInput(ns(paste0(prefix, ".width")), "Width (inches):",
-                 value = 10, min = 3, max = 30, step = 1),
-    numericInput(ns(paste0(prefix, ".height")), "Height (inches):",
-                 value = 6, min = 3, max = 30, step = 1),
-    downloadButton(ns(paste0(prefix, ".download")), dl.label, style = "width:100%")
-  )
-}
-
-# Arrange heterogeneous panel items in a patchwork grid. Each item can be:
-#   - a ggplot / patchwork                  -> used directly (fast)
-#   - a ComplexHeatmap Heatmap / HeatmapList -> captured via grid.grabExpr (fast)
-#   - a function                              -> replayed via ggplotify::as.ggplot (slow
-#                                                but required for base graphics whose
-#                                                internal par(mfrow) otherwise clashes
-#                                                with an outer par grid)
-plot.grid <- function(items, ncol, titles = NULL) {
-  plots <- lapply(seq_along(items), function(i) {
-    item <- items[[i]]
-    title <- if (!is.null(titles) && length(titles) >= i) titles[i] else NULL
-    tryCatch({
-      if (inherits(item, c("ggplot", "patchwork", "gg"))) {
-        item
-      } else if (inherits(item, c("Heatmap", "HeatmapList"))) {
-        patchwork::wrap_elements(
-          full = grid::grid.grabExpr(ComplexHeatmap::draw(item)))
-      } else if (is.function(item)) {
-        p <- ggplotify::as.ggplot(item)
-        if (!is.null(title)) p <- p + ggtitle(title) +
-          theme(plot.title = element_text(hjust = 0.5, face = "bold"))
-        p
-      } else if (inherits(item, c("grob", "gTree"))) {
-        patchwork::wrap_elements(full = item)
-      } else {
-        ggplot() + theme_void() +
-          ggtitle(paste("Unhandled plot type:", paste(class(item), collapse = "/")))
-      }
-    }, error = function(e) {
-      label <- title %||% paste("Panel", i)
-      ggplot() + theme_void() +
-        ggtitle(paste0(label, "\n[", conditionMessage(e), "]"))
-    })
-  })
-  print(patchwork::wrap_plots(plots, ncol = ncol))
 }
 
 # ---------- UI ----------
@@ -413,32 +276,6 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     # Subtab 1: Global network
     # =====================================================
 
-    # Resolve a selector value into: filter active? which values to use? is the
-    # intersection with this group empty?
-    resolve.sel <- function(cc, sel, all.idents) {
-      if (is.null(sel) || length(sel) == 0 || setequal(sel, all.idents)) {
-        return(list(active = FALSE, use = NULL, empty = FALSE))
-      }
-      kept <- intersect(sel, levels(cc@idents))
-      list(active = TRUE, use = kept, empty = length(kept) == 0)
-    }
-
-    placeholder.base <- function(g, msg = "selection absent in this group") {
-      plot.new()
-      title(paste0(g, "\n(", msg, ")"))
-    }
-    placeholder.gg <- function(g, msg = "selection absent in this group") {
-      ggplot() + theme_void() +
-        ggtitle(paste0(g, "\n(", msg, ")"))
-    }
-    placeholder.ht <- function(g, msg = "selection absent") {
-      ComplexHeatmap::Heatmap(
-        matrix(0, 1, 1, dimnames = list("-", "-")),
-        column_title = paste0(g, " (", msg, ")"),
-        show_heatmap_legend = FALSE
-      )
-    }
-
     global.thunk <- function() {
       res <- cellchat.data(); req(res, input$global.plot, input$global.measure)
       grps <- res$group.levels
@@ -458,8 +295,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       items <- lapply(grps, function(g) {
         force(g)
         cc <- res$cellchat.list[[g]]
-        s <- resolve.sel(cc, srcs, all.idents)
-        t <- resolve.sel(cc, tgts, all.idents)
+        s <- resolve.sel(levels(cc@idents), srcs, all.idents)
+        t <- resolve.sel(levels(cc@idents), tgts, all.idents)
         mat <- if (measure == "count") cc@net$count else cc@net$weight
         s.keep <- if (s$active) s$use else rownames(mat)
         t.keep <- if (t$active) t$use else colnames(mat)
@@ -515,9 +352,6 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     # Subtab 2: Zoom-in (pathway & LR)
     # =====================================================
 
-    # Resolve source/target args (empty = NULL = all)
-    nz <- function(x) if (!is.null(x) && length(x) > 0) x else NULL
-
     zoom.thunk <- function() {
       res <- cellchat.data(); req(res, input$zoom.plot, input$zoom.pathway)
       grps <- res$group.levels
@@ -533,7 +367,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
       # Per-group status: the absence message (if any) for this group
       group.status <- function(cc) {
-        s <- resolve.sel(cc, srcs, all.idents); t <- resolve.sel(cc, tgts, all.idents)
+        s <- resolve.sel(levels(cc@idents), srcs, all.idents)
+        t <- resolve.sel(levels(cc@idents), tgts, all.idents)
         msg <- NULL
         if (s$empty || t$empty) msg <- "selection absent"
         else if (!pw %in% cc@netP$pathways) msg <- "pathway absent"
