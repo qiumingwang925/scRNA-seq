@@ -1,10 +1,20 @@
 ## ABOUTME: Container module that wraps SingleR and manual annotation as sub-tabs.
 ## ABOUTME: Manages a shared Seurat object that both annotation methods can read and update.
 
-mod.annotation.ui <- function(id) {
+mod.annotation.ui <- function(id, ui.testing = FALSE) {
   ns <- NS(id)
 
   tabPanel("Annotation", value = "tab.annotation",
+    if (ui.testing) {
+      wellPanel(
+        fluidRow(
+          column(4, strong("TESTING: Upload Seurat Object (.rds)")),
+          column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
+        )
+      )
+    } else {
+      NULL
+    },
     tabsetPanel(id = ns("annotation.tabs"),
       tabPanel("SingleR Annotation",
         mod.annotation.singler.ui(ns("singler"))
@@ -16,7 +26,7 @@ mod.annotation.ui <- function(id) {
   )
 }
 
-mod.annotation.server <- function(id, seurat.obj.cellcycle) {
+mod.annotation.server <- function(id, seurat.obj.cellcycle, ui.testing = FALSE) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -25,6 +35,19 @@ mod.annotation.server <- function(id, seurat.obj.cellcycle) {
 
     # Track the upstream object so we can detect re-runs
     prev.upstream <- reactiveVal(NULL)
+
+    # Handle testing file upload
+    observeEvent(input$seurat_file, {
+      req(input$seurat_file)
+      withProgress(message = "Loading Seurat object...", value = 0, {
+        srt <- readRDS(input$seurat_file$datapath)
+        if (!"manual_annotation" %in% colnames(srt@meta.data)) {
+          srt$manual_annotation <- "Unlabeled"
+        }
+        current.obj(srt)
+        setProgress(1)
+      })
+    })
 
     # Initialize from upstream pipeline, warn on re-run if annotations exist
     observe({

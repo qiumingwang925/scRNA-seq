@@ -105,7 +105,7 @@ ui <- fluidPage(
     
     mod.cellcycle.ui("cellcycle"),
 
-    mod.annotation.ui("annotation")
+    mod.annotation.ui("annotation", ui.testing = UI.TESTING)
     
   )
 )
@@ -134,7 +134,7 @@ server <- function(input, output, session){
   pca.result <- mod.pca.server("pca", qc.result$seurat.obj)
   doublet.result <- mod.doublet.server("doublet", pca.result$seurat.obj, pca.result$pca.dims, ui.testing = UI.TESTING)
   cellcycle.result <- mod.cellcycle.server("cellcycle", doublet.result$seurat.obj)
-  annotation.result <- mod.annotation.server("annotation", cellcycle.result$seurat.obj)
+  annotation.result <- mod.annotation.server("annotation", cellcycle.result$seurat.obj, ui.testing = UI.TESTING)
 
   # Progressive tab enabling: each step enables the next tab and disables all after it
   if (!UI.TESTING) {
