@@ -1,0 +1,10 @@
+# Keep the build context small. NOTE: test-data/ is intentionally NOT ignored —
+# it is bundled into the image even though it is gitignored.
+.git
+.claude
+manuscript_R
+**/.Rproj.user
+**/.Rhistory
+**/.RData
+**/omnipathr-log
+**/.DS_Store

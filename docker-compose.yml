@@ -1,0 +1,15 @@
+# One-command build + run for the scNexus demo.
+# Landing page: http://localhost:3838   (Modules I-IV: 3839-3842)
+services:
+  scnexus:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: scnexus-demo:latest
+    container_name: scnexus-demo
+    ports:
+      - "3838-3842:3838-3842"
+    # Single-cell objects + CellChat/LIANA are memory-hungry. Raise this (and
+    # Docker Desktop's memory limit) if an app dies mid-computation.
+    mem_limit: 16g
+    restart: unless-stopped

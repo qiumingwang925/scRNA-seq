@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>scNexus — scRNA-seq Analysis Platform</title>
+  <style>
+    :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+           background:var(--bg); color:var(--text); min-height:100vh; }
+    .wrap { max-width:880px; margin:0 auto; padding:48px 24px; }
+    h1 { font-size:1.9rem; margin:0 0 4px; }
+    .sub { color:var(--muted); margin:0 0 32px; }
+    .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+    a.card { display:block; text-decoration:none; color:inherit; background:var(--card);
+             border:1px solid #334155; border-radius:12px; padding:20px 22px;
+             transition:border-color .15s, transform .15s; }
+    a.card:hover { border-color:var(--accent); transform:translateY(-2px); }
+    .card h2 { margin:0 0 6px; font-size:1.15rem; color:var(--accent); }
+    .card p { margin:0; color:var(--muted); font-size:.92rem; line-height:1.45; }
+    .port { color:var(--muted); font-size:.8rem; }
+    .note { margin-top:32px; padding:16px 18px; background:var(--card);
+            border-left:3px solid var(--accent); border-radius:8px;
+            color:var(--muted); font-size:.88rem; line-height:1.5; }
+    code { background:#0b1220; padding:1px 6px; border-radius:4px; color:var(--text); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>scNexus</h1>
+    <p class="sub">Interactive single-cell RNA-seq analysis platform — four modules, one container.</p>
+
+    <div class="grid">
+      <a class="card" data-port="3839">
+        <h2>Module I — Individual Sample</h2>
+        <p>Import → QC → PCA → Doublet removal → Cell cycle → Annotation for a single sample.</p>
+        <span class="port">port 3839</span>
+      </a>
+      <a class="card" data-port="3840">
+        <h2>Module II — Integration</h2>
+        <p>Merge multiple samples, integrate (CCA / RPCA / Harmony / FastMNN), benchmark, annotate.</p>
+        <span class="port">port 3840</span>
+      </a>
+      <a class="card" data-port="3841">
+        <h2>Module III — Exploration</h2>
+        <p>UMAP, violin, dot plot, heatmap, differential expression and pathway enrichment.</p>
+        <span class="port">port 3841</span>
+      </a>
+      <a class="card" data-port="3842">
+        <h2>Module IV — Cell-Cell Communication</h2>
+        <p>CellChat and LIANA cell-cell communication inference and visualization.</p>
+        <span class="port">port 3842</span>
+      </a>
+    </div>
+
+    <div class="note">
+      Sample data is bundled at <code>/srv/app/test-data</code>. Module I's file browser
+      can open it directly; for Modules II–IV (which upload from your computer), run
+      <code>./extract-test-data.sh</code> on the host to copy it into your Downloads
+      folder first, then upload from there.
+    </div>
+  </div>
+
+  <script>
+    // Build each app link from the current host so it works whether you reach
+    // this page via localhost or a remote machine's hostname/IP.
+    var origin = window.location.protocol + '//' + window.location.hostname;
+    document.querySelectorAll('a.card[data-port]').forEach(function (card) {
+      card.href = origin + ':' + card.getAttribute('data-port');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+## ABOUTME: Builds a single multi-arch image that runs all four scRNA-seq Shiny apps.
+## ABOUTME: rocker/r-ver base (amd64+arm64); each app is served on its own port by start.sh.
+
+FROM rocker/r-ver:4.4.2
+
+# System libraries required to compile the single-cell + Bioconductor stack
+# (hdf5 for Seurat, fftw/gsl for stats deps, glpk/gmp for igraph, geos/udunits
+# for spatial deps, cairo/freetype/harfbuzz for graphics devices).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libhdf5-dev \
+      libcurl4-openssl-dev \
+      libssl-dev \
+      libxml2-dev \
+      libpng-dev \
+      libtiff5-dev \
+      libjpeg-dev \
+      libfreetype6-dev \
+      libharfbuzz-dev \
+      libfribidi-dev \
+      libcairo2-dev \
+      libxt-dev \
+      libfftw3-dev \
+      libgsl-dev \
+      libglpk-dev \
+      libgmp-dev \
+      libgeos-dev \
+      libudunits2-dev \
+      cmake \
+      git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Parallelise within-package compilation of the GitHub/Bioc source builds.
+ENV MAKEFLAGS="-j4"
+
+# Install packages before copying app code so edits to the apps don't bust the
+# (expensive) package layer cache.
+COPY docker/install_packages.R /tmp/install_packages.R
+RUN Rscript /tmp/install_packages.R
+
+RUN useradd --create-home --shell /bin/bash appuser
+
+# App code, mirroring the on-disk repo layout: R/ and test-data/ are siblings of
+# the module dirs so each app's source("../R/utils.R") and module-I's shinyFiles
+# "Project" root (dirname(getwd()) == /srv/app) resolve unchanged.
+COPY R          /srv/app/R
+COPY module-I   /srv/app/module-I
+COPY module-II  /srv/app/module-II
+COPY module-III /srv/app/module-III
+COPY module-IV  /srv/app/module-IV
+COPY test-data  /srv/app/test-data
+COPY docker/index.html /srv/app/index.html
+COPY docker/start.sh   /usr/local/bin/start.sh
+
+RUN chmod +x /usr/local/bin/start.sh && chown -R appuser:appuser /srv/app
+
+USER appuser
+
+# 3838 = landing page; 3839-3842 = Modules I-IV.
+EXPOSE 3838 3839 3840 3841 3842
+
+CMD ["/usr/local/bin/start.sh"]
