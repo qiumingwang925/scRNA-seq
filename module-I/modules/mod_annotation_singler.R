@@ -10,7 +10,9 @@ mod.annotation.singler.ui <- function(id) {
       fluidRow(
         column(6, fileInput(ns("ref.upload"), "Upload Reference SCE (.rds)", accept = ".rds")),
         column(3, textInput(ns("label.name"), "Label Name", value = "labels")),
-        column(3, actionButton(ns("annotation.run"), "Run SingleR", class = "btn-success", style = "margin-top: 25px"))
+        column(3,
+               actionButton(ns("annotation.run"), "Run SingleR", class = "btn-success", style = "margin-top: 25px"),
+               uiOutput(ns("annotation.run.hint")))
       )
     ),
     fluidRow(
@@ -33,13 +35,11 @@ mod.annotation.singler.ui <- function(id) {
   )
 }
 
-mod.annotation.singler.server <- function(id, current.obj) {
+mod.annotation.singler.server <- function(id, current.obj, upstream.completed = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
-
-    shinyjs::disable("annotation.run")
 
     # Load reference SCE from upload
     data.ref <- reactive({
@@ -47,12 +47,30 @@ mod.annotation.singler.server <- function(id, current.obj) {
       readRDS(input$ref.upload$datapath)
     })
 
-    # Enable run button when reference is uploaded and data is available
-    observe({
-      if (!is.null(current.obj()) && !is.null(input$ref.upload)) {
-        shinyjs::enable("annotation.run")
+    # Soft guard: warn if the Cell Cycle step isn't done, but let the user proceed
+    annotation.run.trigger <- reactiveVal(0)
+    observeEvent(input$annotation.run, {
+      if (isTRUE(upstream.completed())) {
+        annotation.run.trigger(annotation.run.trigger() + 1)
       } else {
-        shinyjs::disable("annotation.run")
+        showModal(modalDialog(
+          title = "Upstream step not completed",
+          "The Cell Cycle step hasn't been completed yet. Proceed anyway?",
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("annotation.run.proceed"), "Proceed anyway", class = "btn-warning")
+          )
+        ))
+      }
+    })
+    observeEvent(input$annotation.run.proceed, {
+      removeModal()
+      annotation.run.trigger(annotation.run.trigger() + 1)
+    })
+
+    output$annotation.run.hint <- renderUI({
+      if (!isTRUE(upstream.completed())) {
+        tags$small(style = "color:#c0392b;", "Cell Cycle step not completed yet — you can still proceed.")
       }
     })
 
@@ -60,7 +78,7 @@ mod.annotation.singler.server <- function(id, current.obj) {
     annotation.col <- reactiveVal(NULL)
 
     # Run SingleR annotation
-    observeEvent(input$annotation.run, {
+    observeEvent(annotation.run.trigger(), {
       req(current.obj(), data.ref())
 
       withProgress(message = "Running SingleR annotation...", value = 0.5, {
@@ -80,7 +98,7 @@ mod.annotation.singler.server <- function(id, current.obj) {
 
       completed(TRUE)
       showNotification("SingleR annotation complete!", type = "message")
-    })
+    }, ignoreInit = TRUE)
 
     # UMAP colored by SingleR labels
     output$plot.annotation <- renderPlot({

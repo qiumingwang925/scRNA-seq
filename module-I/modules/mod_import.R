@@ -36,11 +36,9 @@ mod.import.ui <- function(id) {
 }
 
 
-mod.import.server <- function(id, ui.testing = FALSE) {
+mod.import.server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-
-    if (!ui.testing) shinyjs::disable("convert")
 
     # Setup shinyFiles
     volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
@@ -61,7 +59,6 @@ mod.import.server <- function(id, ui.testing = FALSE) {
       req(input$folder, !is.integer(input$folder))
       folder.name <- tail(unlist(input$folder[1], use.names = FALSE), 1)
       updateTextInput(session, "project.name", value = folder.name)
-      shinyjs::enable("convert")
       completed(FALSE)
     })
     
@@ -69,7 +66,6 @@ mod.import.server <- function(id, ui.testing = FALSE) {
     seurat.obj <- reactiveVal(NULL)
     observeEvent(input$convert, {
       req(input$folder)
-      shinyjs::disable("convert")
       withProgress(message = "Converting to Seurat object...", value = 0, {
         path <- shinyFiles::parseDirPath(volumes, input$folder)
         setProgress(value = 0.2, detail = "Reading 10X data")
@@ -89,7 +85,6 @@ mod.import.server <- function(id, ui.testing = FALSE) {
       })
       seurat.obj(srt)
       completed(TRUE)
-      shinyjs::enable("convert")
     })
     
     # Violin plot

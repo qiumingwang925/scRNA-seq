@@ -9,7 +9,6 @@
 The app dynamically loads or installs these R packages in app.R:
 
 - shiny
-- shinyjs
 - Seurat
 - ggplot2
 - tidyverse
@@ -26,7 +25,7 @@ Install command (optional pre-install):
 env PATH="<TOOLCHAIN_PATH>" \
 R_LD_LIBRARY_PATH="<R_LD_LIBRARY_PATH>" \
 R_MAKEVARS_USER="$PWD/.vscode/Makevars" \
-R -q -e "options(repos=c(CRAN='https://cloud.r-project.org')); install.packages(c('shiny','shinyjs','Seurat','ggplot2','tidyverse','shinyFiles','DoubletFinder','plotly','glmGamPoi','ggpubr','BiocManager'))"
+R -q -e "options(repos=c(CRAN='https://cloud.r-project.org')); install.packages(c('shiny','Seurat','ggplot2','tidyverse','shinyFiles','DoubletFinder','plotly','glmGamPoi','ggpubr','BiocManager'))"
 ```
 
 ## System Dependencies (Homebrew)

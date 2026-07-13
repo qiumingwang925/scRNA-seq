@@ -15,7 +15,8 @@ mod.doublet.ui <- function(id) {
                column(2, numericInput(ns("dbl.percent"), "Doublet Rate (%)", min = 0, max = 20, value = 0, step = 0.1)),
                column(2, numericInput(ns("dbl.pK"), "pK (Optimal)", value = 0.09, step = 0.01)),
                column(2, numericInput(ns("dbl.pN"), "pN (Default)", value = 0.25, min = 0, max = 1, step = 0.01)),
-               column(2, actionButton(ns("dbl.run"), "Run Doublet Finder", class = "btn-success"))
+               column(2, actionButton(ns("dbl.run"), "Run Doublet Finder", class = "btn-success")),
+               column(4, uiOutput(ns("dbl.run.hint")))
              )
            ),
            wellPanel(
@@ -37,12 +38,38 @@ mod.doublet.ui <- function(id) {
 }
 
 
-mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE) {
+mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, upstream.completed = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
-    if (!ui.testing) shinyjs::disable("dbl.remove.run")
+
+    # Soft guard: warn if the PCA step isn't done, but let the user proceed
+    dbl.run.trigger <- reactiveVal(0)
+    observeEvent(input$dbl.run, {
+      if (isTRUE(upstream.completed())) {
+        dbl.run.trigger(dbl.run.trigger() + 1)
+      } else {
+        showModal(modalDialog(
+          title = "Upstream step not completed",
+          "The PCA step hasn't been completed yet. Proceed anyway?",
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("dbl.run.proceed"), "Proceed anyway", class = "btn-warning")
+          )
+        ))
+      }
+    })
+    observeEvent(input$dbl.run.proceed, {
+      removeModal()
+      dbl.run.trigger(dbl.run.trigger() + 1)
+    })
+
+    output$dbl.run.hint <- renderUI({
+      if (!isTRUE(upstream.completed())) {
+        tags$small(style = "color:#c0392b;", "PCA step not completed yet — you can still proceed.")
+      }
+    })
 
     # Number of PCA dimensions to use for UMAP and doublet detection
     dims.to.use <- reactive({ pca.dims() })
@@ -68,7 +95,7 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE)
     # Triggered by EITHER the "Calculate" button OR the "Run" button if prep is missing
     data.dbl.prep <- eventReactive({
       input$dbl.assay.run
-      input$dbl.run
+      dbl.run.trigger()
     }, {
       req(seurat.obj.pca())
 
@@ -94,7 +121,7 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE)
     })
     
     # --- 4. Main Doublet Finder Logic ---
-    data.dbl <- eventReactive(input$dbl.run, {
+    data.dbl <- eventReactive(dbl.run.trigger(), {
       req(data.dbl.prep())
       srt <- data.dbl.prep()
 
@@ -114,9 +141,8 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, ui.testing = FALSE)
         srt$doublet.class <- srt@meta.data[[df.col]]
         srt$doublet.score <- srt@meta.data[[pANN.col]]
       })
-      shinyjs::enable("dbl.remove.run")
       return(srt)
-    })
+    }, ignoreInit = TRUE)
 
     # --- 5. Outputs ---
     output$dbl.table <- renderTable({

@@ -4,7 +4,6 @@
 source("../R/utils.R")
 
 load.or.install("shiny")
-load.or.install("shinyjs")
 load.or.install("Seurat")
 load.or.install("ggplot2")
 load.or.install("tidyverse")
@@ -20,9 +19,6 @@ load.or.install("SingleCellExperiment")
 load.or.install("DT")
 
 options(shiny.maxRequestSize = 10 * 1024^3)
-
-# Set to TRUE to enable all tabs and buttons for UI testing
-UI.TESTING <- FALSE
 
 # biomarker database
 #markers <- read.xlsx("data/biomarkers_mouse.xlsx")
@@ -42,18 +38,7 @@ source("modules/mod_annotation.R")
 
 
 ui <- fluidPage(
-  useShinyjs(),
   tags$head(tags$style(HTML("
-    .nav-tabs > li.disabled > a {
-      color: #ccc !important;
-      pointer-events: none !important;
-      cursor: default !important;
-    }
-    .btn.disabled, .btn:disabled {
-      background-color: #e0e0e0 !important;
-      color: #aaa !important;
-      border-color: #d0d0d0 !important;
-    }
     .well {
       background-color: #ffffff !important;
     }
@@ -105,8 +90,8 @@ ui <- fluidPage(
     
     mod.cellcycle.ui("cellcycle"),
 
-    mod.annotation.ui("annotation", ui.testing = UI.TESTING)
-    
+    mod.annotation.ui("annotation")
+
   )
 )
 
@@ -114,55 +99,13 @@ server <- function(input, output, session){
   
   seurat.obj <- reactiveVal(NULL)
 
-  # Pipeline tab values in order, used for progressive enable/disable
-  pipeline.tabs <- c("tab.qc", "tab.pca", "tab.doublet", "tab.cellcycle", "tab.annotation")
+  import.result <- mod.import.server("import")
+  qc.result <- mod.qc.server("qc", import.result$seurat.obj, upstream.completed = import.result$completed)
+  pca.result <- mod.pca.server("pca", qc.result$seurat.obj, upstream.completed = qc.result$completed)
+  doublet.result <- mod.doublet.server("doublet", pca.result$seurat.obj, pca.result$pca.dims, upstream.completed = pca.result$completed)
+  cellcycle.result <- mod.cellcycle.server("cellcycle", doublet.result$seurat.obj, upstream.completed = doublet.result$completed)
+  annotation.result <- mod.annotation.server("annotation", cellcycle.result$seurat.obj, upstream.completed = cellcycle.result$completed)
 
-  # Helper to enable/disable a tab by its value attribute
-  enable.tab <- function(tab.value) {
-    shinyjs::runjs(sprintf("$('#main_tabs > li > a[data-value=\"%s\"]').parent().removeClass('disabled');", tab.value))
-  }
-  disable.tab <- function(tab.value) {
-    shinyjs::runjs(sprintf("$('#main_tabs > li > a[data-value=\"%s\"]').parent().addClass('disabled');", tab.value))
-  }
-  disable.tabs <- function(tab.values) { for (v in tab.values) disable.tab(v) }
-
-  # Disable all downstream tabs on startup (unless UI testing)
-  if (!UI.TESTING) disable.tabs(pipeline.tabs)
-
-  import.result <- mod.import.server("import", ui.testing = UI.TESTING)
-  qc.result <- mod.qc.server("qc", import.result$seurat.obj)
-  pca.result <- mod.pca.server("pca", qc.result$seurat.obj)
-  doublet.result <- mod.doublet.server("doublet", pca.result$seurat.obj, pca.result$pca.dims, ui.testing = UI.TESTING)
-  cellcycle.result <- mod.cellcycle.server("cellcycle", doublet.result$seurat.obj)
-  annotation.result <- mod.annotation.server("annotation", cellcycle.result$seurat.obj, ui.testing = UI.TESTING)
-
-  # Progressive tab enabling: each step enables the next tab and disables all after it
-  if (!UI.TESTING) {
-    observe({
-      if (import.result$completed()) {
-        enable.tab("tab.qc")
-      } else {
-        disable.tabs(pipeline.tabs)
-      }
-    })
-
-    observe({
-      if (qc.result$completed()) { enable.tab("tab.pca") } else { disable.tabs(pipeline.tabs[2:5]) }
-    })
-
-    observe({
-      if (pca.result$completed()) { enable.tab("tab.doublet") } else { disable.tabs(pipeline.tabs[3:5]) }
-    })
-
-    observe({
-      if (doublet.result$completed()) { enable.tab("tab.cellcycle") } else { disable.tabs(pipeline.tabs[4:5]) }
-    })
-
-    observe({
-      if (cellcycle.result$completed()) { enable.tab("tab.annotation") } else { disable.tab("tab.annotation") }
-    })
-  }
-  
 }
 
 shinyApp(ui, server)

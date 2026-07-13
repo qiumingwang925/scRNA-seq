@@ -20,7 +20,9 @@ mod.qc.ui <- function(id) {
                wellPanel(
                  fluidRow(
                    column(6, strong("QC Plot"), textOutput(ns("qc.selected.count"), inline = TRUE)),
-                   column(3, offset = 3, actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100%"))
+                   column(3, offset = 3,
+                          actionButton(ns("qc.plot.run"), "Plot", class = "btn-success", style = "width: 100%"),
+                          uiOutput(ns("qc.plot.hint")))
                  ),
                  tags$div(class = "square.plot",
                    plotOutput(ns("plot.qc"), width = "100%", height = "100%")
@@ -43,24 +45,37 @@ mod.qc.ui <- function(id) {
 }
 
 
-mod.qc.server <- function(id, seurat.obj) {
+mod.qc.server <- function(id, seurat.obj, upstream.completed = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
 
-    # Filter button starts disabled until user visualizes the data
-    shinyjs::disable("qc.filter.run")
-
-    # Disable filter button when any slider changes (plot is stale)
-    observe({
-      input$nfeature; input$ncount; input$mt; input$rp; input$hb
-      shinyjs::disable("qc.filter.run")
+    # Soft guard: warn if the Import step isn't done, but let the user proceed
+    qc.plot.trigger <- reactiveVal(0)
+    observeEvent(input$qc.plot.run, {
+      if (isTRUE(upstream.completed())) {
+        qc.plot.trigger(qc.plot.trigger() + 1)
+      } else {
+        showModal(modalDialog(
+          title = "Upstream step not completed",
+          "The Import step hasn't been completed yet. Proceed anyway?",
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("qc.plot.proceed"), "Proceed anyway", class = "btn-warning")
+          )
+        ))
+      }
+    })
+    observeEvent(input$qc.plot.proceed, {
+      removeModal()
+      qc.plot.trigger(qc.plot.trigger() + 1)
     })
 
-    # Enable filter button after plot is rendered
-    observeEvent(input$qc.plot.run, {
-      shinyjs::enable("qc.filter.run")
+    output$qc.plot.hint <- renderUI({
+      if (!isTRUE(upstream.completed())) {
+        tags$small(style = "color:#c0392b;", "Import step not completed yet — you can still proceed.")
+      }
     })
 
     # 1. Dynamic Slider Updates
@@ -83,7 +98,7 @@ mod.qc.server <- function(id, seurat.obj) {
     })
     
     # 2. QC Classification — triggered on Plot so user sees results before filtering
-    data.qc <- eventReactive(input$qc.plot.run, {
+    data.qc <- eventReactive(qc.plot.trigger(), {
       req(seurat.obj())
       srt <- seurat.obj()
 
@@ -99,8 +114,8 @@ mod.qc.server <- function(id, seurat.obj) {
       
       srt@meta.data$QC <- meta$QC
       return(srt)
-    })
-    
+    }, ignoreInit = TRUE)
+
     # Selected cell count next to QC Plot title
     output$qc.selected.count <- renderText({
       req(data.qc())
@@ -154,9 +169,9 @@ mod.qc.server <- function(id, seurat.obj) {
     }, res = 96)
 
     # Rename button to "Update Plot" after first plot render
-    observeEvent(input$qc.plot.run, {
+    observeEvent(qc.plot.trigger(), {
       updateActionButton(session, "qc.plot.run", label = "Update Selection")
-    }, once = TRUE)
+    }, once = TRUE, ignoreInit = TRUE)
     
     # 4. Final Filtering
     observeEvent(input$qc.filter.run, {
