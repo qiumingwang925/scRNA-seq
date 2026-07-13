@@ -10,7 +10,8 @@ mod.pca.ui <- function(id) {
              fluidRow(
                column(5, radioButtons(ns("pca.norm"), "Normalization and Scaling",
                                       c("Log Normalization" = "LogNorm", "SCTransform"="SCTransform"), inline = TRUE)),
-               column(2, actionButton(ns("pca.run"), "Run PCA", class = "btn-success"))
+               column(2, actionButton(ns("pca.run"), "Run PCA", class = "btn-success")),
+               column(5, uiOutput(ns("pca.run.hint")))
              )
            ),
            fluidRow(class = "plot.params.row",
@@ -42,23 +43,41 @@ mod.pca.ui <- function(id) {
   )
 }
 
-mod.pca.server <- function(id, seurat.obj.qc) {
+mod.pca.server <- function(id, seurat.obj.qc, upstream.completed = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
-    pca.plotted <- reactiveVal(FALSE)
 
-    shinyjs::disable("pca.plot.run")
-    shinyjs::disable("pca.filter.run")
+    # Soft guard: warn if the QC step isn't done, but let the user proceed
+    pca.run.trigger <- reactiveVal(0)
+    observeEvent(input$pca.run, {
+      if (isTRUE(upstream.completed())) {
+        pca.run.trigger(pca.run.trigger() + 1)
+      } else {
+        showModal(modalDialog(
+          title = "Upstream step not completed",
+          "The QC step hasn't been completed yet. Proceed anyway?",
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("pca.run.proceed"), "Proceed anyway", class = "btn-warning")
+          )
+        ))
+      }
+    })
+    observeEvent(input$pca.run.proceed, {
+      removeModal()
+      pca.run.trigger(pca.run.trigger() + 1)
+    })
 
-    # Enable plot button after PCA completes
-    observeEvent(data.pca(), {
-      shinyjs::enable("pca.plot.run")
+    output$pca.run.hint <- renderUI({
+      if (!isTRUE(upstream.completed())) {
+        tags$small(style = "color:#c0392b;", "QC step not completed yet — you can still proceed.")
+      }
     })
 
     # Logic to handle the PCA computation
-    data.pca <- eventReactive(input$pca.run, {
+    data.pca <- eventReactive(pca.run.trigger(), {
       req(seurat.obj.qc()) # Ensure data exists from previous module
       
       # Use the object passed from the previous module
@@ -76,8 +95,8 @@ mod.pca.server <- function(id, seurat.obj.qc) {
         }
       })
       return(srt)
-    })
-    
+    }, ignoreInit = TRUE)
+
     # Plotting Logic
     plot.input.pca <- eventReactive(input$pca.plot.run, {
       req(data.pca())
@@ -97,38 +116,13 @@ mod.pca.server <- function(id, seurat.obj.qc) {
       plot.input.pca()
     }, res = 96)
 
-    # Invalidate plotted state when PCA is re-run
-    observeEvent(input$pca.run, {
-      pca.plotted(FALSE)
-    })
-
-    # Invalidate plotted state when any plot parameter changes
-    observe({
-      input$pca.number; input$pca.load; input$pca.heatmap
-      input$pca.2d.1; input$pca.2d.2; input$pca.plot.type
-      pca.plotted(FALSE)
-    })
-
-    # Mark as plotted after plot button click
-    observeEvent(input$pca.plot.run, {
-      pca.plotted(TRUE)
-    })
-
-    # Enable/disable confirm button based on plotted state
-    observe({
-      if (pca.plotted()) {
-        shinyjs::enable("pca.filter.run")
-      } else {
-        shinyjs::disable("pca.filter.run")
-      }
-    })
-
     # Rename Plot button after first use
     observeEvent(input$pca.plot.run, {
       updateActionButton(session, "pca.plot.run", label = "Update Plot")
     }, once = TRUE)
 
     observeEvent(input$pca.filter.run, {
+      req(data.pca())
       completed(TRUE)
     })
 

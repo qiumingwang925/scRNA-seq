@@ -59,6 +59,7 @@ mod.annotation.manual.ui <- function(id) {
                   placeholder = "e.g., Alveolar Macrophage"),
         actionButton(ns("apply.label"), "Apply Label to Selection",
                      class = "btn-primary", style = "width:100%"),
+        uiOutput(ns("apply.label.hint")),
         br(), br(),
         mod.save.config.ui(ns("save"), label = "Export Annotated Object")
       ),
@@ -81,12 +82,39 @@ mod.annotation.manual.ui <- function(id) {
   )
 }
 
-mod.annotation.manual.server <- function(id, current.obj) {
+mod.annotation.manual.server <- function(id, current.obj, upstream.completed = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
     subset.obj <- reactiveVal(NULL)
+
+    # Soft guard: warn if the Cell Cycle step isn't done, but let the user proceed
+    apply.label.trigger <- reactiveVal(0)
+    observeEvent(input$apply.label, {
+      if (isTRUE(upstream.completed())) {
+        apply.label.trigger(apply.label.trigger() + 1)
+      } else {
+        showModal(modalDialog(
+          title = "Upstream step not completed",
+          "The Cell Cycle step hasn't been completed yet. Proceed anyway?",
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("apply.label.proceed"), "Proceed anyway", class = "btn-warning")
+          )
+        ))
+      }
+    })
+    observeEvent(input$apply.label.proceed, {
+      removeModal()
+      apply.label.trigger(apply.label.trigger() + 1)
+    })
+
+    output$apply.label.hint <- renderUI({
+      if (!isTRUE(upstream.completed())) {
+        tags$small(style = "color:#c0392b;", "Cell Cycle step not completed yet — you can still proceed.")
+      }
+    })
 
     # --- Update metadata dropdown based on active object ---
     observe({
@@ -238,7 +266,7 @@ mod.annotation.manual.server <- function(id, current.obj) {
     })
 
     # --- Apply annotation label ---
-    observeEvent(input$apply.label, {
+    observeEvent(apply.label.trigger(), {
       sel <- plotly::event_data("plotly_selected", source = ns("umap.select"))
       req(sel, input$new.label != "")
 
@@ -268,7 +296,7 @@ mod.annotation.manual.server <- function(id, current.obj) {
 
       completed(TRUE)
       showNotification(paste("Applied label:", new.label), type = "message")
-    })
+    }, ignoreInit = TRUE)
 
     # --- DE analysis ---
     de.results <- eventReactive(input$run.de, {

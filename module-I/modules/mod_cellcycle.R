@@ -10,7 +10,8 @@ mod.cellcycle.ui <- function(id) {
              fluidRow(
                column(5, radioButtons(ns("cell.cycle.ref"), "Species",
                                       choices = c("Mouse", "Human"), inline = TRUE)),
-               column(2, actionButton(ns("cell.cycle.run"), "Run Cell Cycle", class = "btn-success"))
+               column(2, actionButton(ns("cell.cycle.run"), "Run Cell Cycle", class = "btn-success")),
+               column(5, uiOutput(ns("cell.cycle.hint")))
              )
            ),
            wellPanel(
@@ -25,14 +26,41 @@ mod.cellcycle.ui <- function(id) {
   )
 }
 
-mod.cellcycle.server <- function(id, seurat.obj.doublet) {
+mod.cellcycle.server <- function(id, seurat.obj.doublet, upstream.completed = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     completed <- reactiveVal(FALSE)
 
+    # Soft guard: warn if the Doublet step isn't done, but let the user proceed
+    cell.cycle.trigger <- reactiveVal(0)
+    observeEvent(input$cell.cycle.run, {
+      if (isTRUE(upstream.completed())) {
+        cell.cycle.trigger(cell.cycle.trigger() + 1)
+      } else {
+        showModal(modalDialog(
+          title = "Upstream step not completed",
+          "The Doublet Removal step hasn't been completed yet. Proceed anyway?",
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("cell.cycle.proceed"), "Proceed anyway", class = "btn-warning")
+          )
+        ))
+      }
+    })
+    observeEvent(input$cell.cycle.proceed, {
+      removeModal()
+      cell.cycle.trigger(cell.cycle.trigger() + 1)
+    })
+
+    output$cell.cycle.hint <- renderUI({
+      if (!isTRUE(upstream.completed())) {
+        tags$small(style = "color:#c0392b;", "Doublet Removal step not completed yet — you can still proceed.")
+      }
+    })
+
     # 1. Process Cell Cycle Scoring
-    data.cell.cycle <- eventReactive(input$cell.cycle.run, {
+    data.cell.cycle <- eventReactive(cell.cycle.trigger(), {
       # req() ensures the object from the previous module exists
       req(seurat.obj.doublet())
       
@@ -57,7 +85,7 @@ mod.cellcycle.server <- function(id, seurat.obj.doublet) {
       })
       completed(TRUE)
       return(srt)
-    })
+    }, ignoreInit = TRUE)
     
     # 2. Render Plot
     ### UMAP figure ####
