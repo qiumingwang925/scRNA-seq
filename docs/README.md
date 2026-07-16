@@ -1,0 +1,58 @@
+# scRNA-seq Analysis Platform — User Guide
+
+A step-by-step walkthrough of the **happy path** through the platform: the
+straight-line route from a raw Cell Ranger matrix to cell-cell communication
+results, using the bundled sample data. Each module has its own guide with
+screenshots of every step.
+
+This guide documents the intended, working path — not every option or edge case.
+Parameters that don't need changing for the demo are left at their defaults.
+
+## The pipeline
+
+The four modules chain together — each one's output is the next one's input:
+
+```
+Module I            Module II              Module III            Module IV
+Individual sample   Multi-sample           Post-annotation       Cell-cell
+processing          integration            exploration           communication
+─────────────       ─────────────          ─────────────         ─────────────
+Cell Ranger MEX  →  Processed .rds      →  Annotated .rds     →  Annotated .rds
+      │             (one per sample)        │                     │
+      ▼                    │                ▼                     ▼
+Processed .rds  ──────────►│           Figures & tables      CellChat / LIANA
+                    Annotated .rds                            result objects
+```
+
+You can also enter at any module if you already have data in the right shape —
+each module's guide lists what it expects as input.
+
+## Module guides
+
+| Guide | Module | Pipeline |
+|-------|--------|----------|
+| [Module I](module-I.md) | Individual-sample analysis | Import → QC → PCA → Doublet → Cell Cycle → Annotation |
+| [Module II](module-II.md) | Multi-sample integration | Upload & Merge → Integration → Benchmarking → Annotation |
+| [Module III](module-III.md) | Post-annotation exploration | Upload → UMAP → Violin → Dot → Heatmap → DE → Enrichment |
+| [Module IV](module-IV.md) | Cell-cell communication | Upload → CellChat → LIANA |
+
+## Sample data
+
+Every walkthrough uses the datasets in the repository's `test-data/` folder:
+
+- `test-data/21401X3/` — Cell Ranger MEX output (`barcodes.tsv.gz`,
+  `features.tsv.gz`, `matrix.mtx.gz`). Starting point for **Module I**.
+- `test-data/Manual_Annotated_21401X3.rds` — a pre-processed, annotated Seurat
+  object. A shortcut entry point for **Modules II–IV** if you don't want to run
+  Module I first.
+
+## Launching the platform
+
+How you start the apps depends on how the platform is deployed. Refer to your
+deployment's setup instructions to open each module in a browser.
+
+## About the screenshots
+
+Screenshots live in `docs/img/<module>/` and are named by step
+(e.g. `01-import.png`). They are captured against the bundled `test-data/`, so
+anything you see here is reproducible with the sample data.
