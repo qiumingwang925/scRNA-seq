@@ -28,6 +28,12 @@ mod.import.ui <- function(id) {
       )
     ),
     wellPanel(
+      fluidRow(
+        column(4, strong("Or upload a processed Seurat object (.rds)")),
+        column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
+      )
+    ),
+    wellPanel(
       strong("QC Overview"),
       shinycssloaders::withSpinner(plotOutput(ns("plot.raw.vln"), height = "400px", width = "1000px")),
       shinycssloaders::withSpinner(plotOutput(ns("plot.raw.dst"), height = "150px", width = "1000px"))
@@ -86,7 +92,30 @@ mod.import.server <- function(id) {
       seurat.obj(srt)
       completed(TRUE)
     })
-    
+
+    # Upload an already-processed Seurat object instead of converting a folder
+    observeEvent(input$seurat_file, {
+      req(input$seurat_file)
+      withProgress(message = "Loading Seurat object...", value = 0, {
+        srt <- readRDS(input$seurat_file$datapath)
+        setProgress(value = 0.6, detail = "Computing missing QC metrics")
+        # Mirror the mouse gene patterns used by the convert path; only fill in
+        # metrics the uploaded object doesn't already carry.
+        if (!"percent.mt" %in% colnames(srt@meta.data)) {
+          srt[["percent.mt"]] <- PercentageFeatureSet(srt, pattern = "^mt-")
+        }
+        if (!"percent.rp" %in% colnames(srt@meta.data)) {
+          srt[["percent.rp"]] <- PercentageFeatureSet(srt, pattern = "^Rp[sl]")
+        }
+        if (!"percent.hb" %in% colnames(srt@meta.data)) {
+          srt[["percent.hb"]] <- PercentageFeatureSet(srt, pattern = "^Hb[^(P)]")
+        }
+        setProgress(value = 1.0, detail = "Done")
+      })
+      seurat.obj(srt)
+      completed(TRUE)
+    })
+
     # Violin plot
     output$plot.raw.vln <- renderPlot({
       req(completed())
