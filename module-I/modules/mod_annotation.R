@@ -5,6 +5,12 @@ mod.annotation.ui <- function(id) {
   ns <- NS(id)
 
   tabPanel("Annotation", value = "tab.annotation",
+    wellPanel(
+      fluidRow(
+        column(4, strong("Upload Seurat Object(.rds)")),
+        column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
+      )
+    ),
     tabsetPanel(id = ns("annotation.tabs"),
       tabPanel("SingleR Annotation",
         mod.annotation.singler.ui(ns("singler"))
@@ -25,6 +31,19 @@ mod.annotation.server <- function(id, seurat.obj.cellcycle, upstream.completed =
 
     # Track the upstream object so we can detect re-runs
     prev.upstream <- reactiveVal(NULL)
+
+    # Handle direct object upload (bypasses the upstream pipeline)
+    observeEvent(input$seurat_file, {
+      req(input$seurat_file)
+      withProgress(message = "Loading Seurat object...", value = 0, {
+        srt <- readRDS(input$seurat_file$datapath)
+        if (!"manual_annotation" %in% colnames(srt@meta.data)) {
+          srt$manual_annotation <- "Unlabeled"
+        }
+        current.obj(srt)
+        setProgress(1)
+      })
+    })
 
     # Initialize from upstream pipeline, warn on re-run if annotations exist
     observe({
