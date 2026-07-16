@@ -48,8 +48,9 @@ Every walkthrough uses the datasets in the repository's `test-data/` folder:
 
 ## Launching the platform
 
-How you start the apps depends on how the platform is deployed. Refer to your
-deployment's setup instructions to open each module in a browser.
+The platform runs as a single Docker image — see the [setup guide](docker.md)
+for build, run, and sample-data instructions. Once it's up, each module opens in
+a browser (Module I at <http://localhost:3839>, and so on).
 
 ## About the screenshots
 
