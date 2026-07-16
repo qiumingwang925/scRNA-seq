@@ -72,7 +72,7 @@ mod.pca.server <- function(id, seurat.obj.qc, upstream.completed = reactive(TRUE
 
     output$pca.run.hint <- renderUI({
       if (!isTRUE(upstream.completed())) {
-        tags$small(style = "color:#c0392b;", "QC step not completed yet — you can still proceed.")
+        tags$small(style = "color:#c0392b;", "QC step not completed yet.")
       }
     })
 
