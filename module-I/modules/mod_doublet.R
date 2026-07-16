@@ -67,7 +67,7 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, upstream.completed 
 
     output$dbl.run.hint <- renderUI({
       if (!isTRUE(upstream.completed())) {
-        tags$small(style = "color:#c0392b;", "PCA step not completed yet — you can still proceed.")
+        tags$small(style = "color:#c0392b;", "PCA step not completed yet.")
       }
     })
 

@@ -112,7 +112,7 @@ mod.annotation.manual.server <- function(id, current.obj, upstream.completed = r
 
     output$apply.label.hint <- renderUI({
       if (!isTRUE(upstream.completed())) {
-        tags$small(style = "color:#c0392b;", "Cell Cycle step not completed yet — you can still proceed.")
+        tags$small(style = "color:#c0392b;", "Cell Cycle step not completed yet.")
       }
     })
 

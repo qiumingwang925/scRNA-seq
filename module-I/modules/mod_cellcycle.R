@@ -55,7 +55,7 @@ mod.cellcycle.server <- function(id, seurat.obj.doublet, upstream.completed = re
 
     output$cell.cycle.hint <- renderUI({
       if (!isTRUE(upstream.completed())) {
-        tags$small(style = "color:#c0392b;", "Doublet Removal step not completed yet — you can still proceed.")
+        tags$small(style = "color:#c0392b;", "Doublet Removal step not completed yet.")
       }
     })
 

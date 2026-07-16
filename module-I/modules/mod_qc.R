@@ -74,7 +74,7 @@ mod.qc.server <- function(id, seurat.obj, upstream.completed = reactive(TRUE)) {
 
     output$qc.plot.hint <- renderUI({
       if (!isTRUE(upstream.completed())) {
-        tags$small(style = "color:#c0392b;", "Import step not completed yet — you can still proceed.")
+        tags$small(style = "color:#c0392b;", "Import step not completed yet.")
       }
     })
 
