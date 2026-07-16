@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 ## ABOUTME: Builds a single multi-arch image that runs all four scRNA-seq Shiny apps.
 ## ABOUTME: rocker/r-ver base (amd64+arm64); each app is served on its own port by start.sh.
 
@@ -33,9 +34,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV MAKEFLAGS="-j4"
 
 # Install packages before copying app code so edits to the apps don't bust the
-# (expensive) package layer cache.
+# (expensive) package layer cache. The library is a BuildKit cache mount: it persists
+# across builds (even failed ones), so a re-run resumes and only installs what's still
+# missing instead of the whole list. Cache mounts are not part of the image, so copy the
+# result into the real site-library once the install succeeds.
 COPY docker/install_packages.R /tmp/install_packages.R
-RUN Rscript /tmp/install_packages.R
+RUN --mount=type=cache,target=/rlib,sharing=locked \
+    Rscript /tmp/install_packages.R /rlib && \
+    cp -an /rlib/. /usr/local/lib/R/site-library/
 
 RUN useradd --create-home --shell /bin/bash appuser
 
