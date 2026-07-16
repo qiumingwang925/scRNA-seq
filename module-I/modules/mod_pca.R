@@ -6,9 +6,8 @@ mod.pca.ui <- function(id) {
   
   tabPanel("PCA", value = "tab.pca",
            wellPanel(
-             strong("Normalization"),
              fluidRow(
-               column(5, radioButtons(ns("pca.norm"), "Normalization and Scaling",
+               column(5, radioButtons(ns("pca.norm"), "Normalization and Transformation",
                                       c("Log Normalization" = "LogNorm", "SCTransform"="SCTransform"), inline = TRUE)),
                column(2, actionButton(ns("pca.run"), "Run PCA", class = "btn-success")),
                column(5, uiOutput(ns("pca.run.hint")))
