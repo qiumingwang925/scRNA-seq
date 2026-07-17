@@ -6,30 +6,31 @@ mod.import.ui <- function(id) {
   
   tabPanel(
     "Import raw data", value = "tab.import",
+    helpText("Load a sample using either option below — you only need one."),
     wellPanel(
+      strong("Option 1 — Cell Ranger MEX folder"),
       fluidRow(
-        column(4, strong("Upload a sample (Cell Ranger MEX Analysis Result Folder)")),
-        column(1, shinyDirButton(ns("folder"), "Select", title ="Select a sample folder", multiple = FALSE, class = "btn-success", style = "width: 100px;"))
+        column(4, "Select a Cell Ranger MEX analysis result folder, then Convert"),
+        column(1, shinyDirButton(ns("folder"), "Select", title = "Select a sample folder", multiple = FALSE, class = "btn-success", style = "width: 100px;"))
       ),
       fluidRow(
         column(2, verbatimTextOutput(ns("mex"), placeholder = FALSE)),
         column(3, textOutput(ns("cell.count")))
-      )
-    ),
-    wellPanel(
-      fluidRow(
-        column(4, strong("Convert to Seurat Object")),
-        column(1, actionButton(ns("convert"), "Convert", class ="btn-success", style = "width: 100px;"))
       ),
       fluidRow(
         column(2, textInput(ns("project.name"), "Create a Sample ID", value = "")),
         column(2, numericInput(ns("min.cells"), "Cell Threshold", value = 3)),
         column(2, numericInput(ns("min.features"), "Feature Threshold", value = 100))
+      ),
+      fluidRow(
+        column(2, actionButton(ns("convert"), "Convert", class = "btn-success", style = "width: 100px;"))
       )
     ),
+    div(style = "text-align: center; font-weight: bold; margin: 6px 0;", "— OR —"),
     wellPanel(
+      strong("Option 2 — Processed Seurat object (.rds)"),
       fluidRow(
-        column(4, strong("Or upload a processed Seurat object (.rds)")),
+        column(4, "Upload an already-processed Seurat object"),
         column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
       )
     ),
@@ -46,9 +47,21 @@ mod.import.server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # Setup shinyFiles
-    volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
-    shinyDirChoose(input, 'folder', roots = volumes, defaultRoot = "Project")
+    # Setup shinyFiles. In the Docker demo, SCNEXUS_DATA_ROOT points at the
+    # bind-mounted datasets folder; restricting the browser to it plus the
+    # bundled sample data keeps users out of the rest of the container
+    # filesystem. Unset outside Docker, so local use keeps the project dir +
+    # system volumes.
+    data.root <- Sys.getenv("SCNEXUS_DATA_ROOT", unset = "")
+    if (nzchar(data.root)) {
+      volumes <- c("Sample data" = file.path(dirname(getwd()), "test-data"),
+                   "Datasets" = data.root)
+      default.root <- "Sample data"
+    } else {
+      volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
+      default.root <- "Project"
+    }
+    shinyDirChoose(input, 'folder', roots = volumes, defaultRoot = default.root)
 
     # Display selected folder name
     observe({

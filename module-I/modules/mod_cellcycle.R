@@ -1,5 +1,5 @@
 ## ABOUTME: Shiny module for cell cycle phase scoring using Seurat's CellCycleScoring.
-## ABOUTME: Supports mouse and human gene lists, displays S and G2M phase scores on UMAP.
+## ABOUTME: Uses mouse gene lists, displays S and G2M phase scores on UMAP.
 
 mod.cellcycle.ui <- function(id) {
   ns <- NS(id)
@@ -8,8 +8,6 @@ mod.cellcycle.ui <- function(id) {
            wellPanel(
              strong("Cell Cycle Scoring"),
              fluidRow(
-               column(5, radioButtons(ns("cell.cycle.ref"), "Species",
-                                      choices = c("Mouse", "Human"), inline = TRUE)),
                column(2, actionButton(ns("cell.cycle.run"), "Run Cell Cycle", class = "btn-success")),
                column(5, uiOutput(ns("cell.cycle.hint")))
              )
@@ -66,17 +64,12 @@ mod.cellcycle.server <- function(id, seurat.obj.doublet, upstream.completed = re
       
       withProgress(message = 'Calculating Cell Cycle Scores...', value = 0.5, {
         srt <- seurat.obj.doublet()
-        
-        # Determine gene lists based on species
-        s.genes <- cc.genes.updated.2019$s.genes
-        g2m.genes <- cc.genes.updated.2019$g2m.genes
-        
-        if (input$cell.cycle.ref == "Mouse") {
-          # Convert HUMAN genes to Mouse format (Title Case)
-          s.genes <- stringr::str_to_title(s.genes)
-          g2m.genes <- stringr::str_to_title(g2m.genes)
-        }
-        
+
+        # Seurat ships the human cell-cycle gene lists; convert to mouse symbol
+        # casing (Title Case) since this platform only handles mouse data.
+        s.genes <- stringr::str_to_title(cc.genes.updated.2019$s.genes)
+        g2m.genes <- stringr::str_to_title(cc.genes.updated.2019$g2m.genes)
+
         # Run Seurat scoring
         srt <- CellCycleScoring(srt,
                                 s.features = s.genes,
