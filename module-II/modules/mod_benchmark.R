@@ -212,10 +212,21 @@ mod.benchmark.server <- function(id, shared.data) {
       req(nrow(df) > 0)
       cols.10 <- c("#1F77B4", "#FF7F0E", "#2CA02C","#D62728","#9467BD", "#8C564B", "#E377C2","#7F7F7F", "#BCBD22", "#17BECF")
 
+      # Lay out each metric family (ASW, LISI, GraphLISI) as its own column with
+      # the batch metric on top and the cell-type metric below. facet_wrap fills
+      # row-major, so order the batch row first, then the cell-type row, and set
+      # ncol to the number of families present so subsets stay aligned.
+      metric.family <- c(basw = "ASW", ilisi = "LISI", gilisi = "GraphLISI",
+                         casw = "ASW", clisi = "LISI", gclisi = "GraphLISI")
+      metric.order <- c("basw", "ilisi", "gilisi", "casw", "clisi", "gclisi")
+      present <- metric.order[metric.order %in% df$Metric]
+      df$Metric <- factor(df$Metric, levels = present)
+      n.families <- length(unique(metric.family[present]))
+
       ggplot(df, aes(x = Integration, y = Score, fill = Integration)) +
         geom_violin(trim = FALSE, show.legend = FALSE) +
         geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA, show.legend = FALSE) +
-        facet_wrap(~Metric, scales = "free_y", ncol = 3) +
+        facet_wrap(~Metric, scales = "free_y", ncol = n.families) +
         scale_fill_manual(values = cols.10) +
         theme_classic() +
         theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
