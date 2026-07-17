@@ -290,7 +290,7 @@ mod.benchmark.server <- function(id, shared.data) {
       rank.pivot <- rank.pivot %>%
         dplyr::select(
           Integration,
-          any_of(c("basw", "ilisi", "gilisi", "casw", "clisi", "gclisi")),
+          any_of(c("basw", "casw", "ilisi", "clisi", "gilisi", "gclisi")),
           Total.Score
         ) %>%
         dplyr::rename(Method = Integration)
