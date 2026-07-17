@@ -41,3 +41,7 @@ Thumbs.db
 
 # OmnipathR runtime logs (created on package load)
 omnipathr-log/
+
+# Docker bind-mount drop-folder — keep the folder, ignore user data
+datasets/*
+!datasets/.gitkeep

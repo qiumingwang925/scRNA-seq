@@ -9,6 +9,14 @@ services:
     container_name: scnexus-demo
     ports:
       - "3838-3842:3838-3842"
+    volumes:
+      # Drop your own sample folders in ./datasets on the host to load them in
+      # Module I. The bind mount is the only host folder the apps can see.
+      - ./datasets:/srv/app/datasets
+    environment:
+      # Restricts Module I's file browser to the datasets mount + the bundled
+      # sample data, instead of exposing the whole container filesystem.
+      - SCNEXUS_DATA_ROOT=/srv/app/datasets
     # Single-cell objects + CellChat/LIANA are memory-hungry. Raise this (and
     # Docker Desktop's memory limit) if an app dies mid-computation.
     mem_limit: 16g

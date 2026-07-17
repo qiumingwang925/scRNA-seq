@@ -44,17 +44,25 @@ Each module runs as its own process; if one crashes the others keep serving
 
 ## Sample data
 
-The `test-data/` datasets are bundled inside the image.
+The bundled sample in `test-data/` is baked into the image.
 
-- **Module I** uses a server-side file browser — open the `test-data` folder
-  directly from the app.
-- **Modules II–IV** upload from your computer, so copy the bundled data to the
-  host first:
+**Module I** uses a server-side file browser restricted to two roots — it cannot
+see anything else in the container:
 
-  ```bash
-  ./extract-test-data.sh            # -> ~/Downloads/scNexus-test-data
-  ./extract-test-data.sh /some/dir  # custom destination
-  ```
+- **Sample data** (the default root) — the bundled sample. Pick `21401X3` to
+  run the demo straight away.
+- **Datasets** — your own data. Drop sample folders into the `datasets/` folder
+  in the project directory; it is bind-mounted into the container. In the
+  browser, switch the root dropdown from *Sample data* to *Datasets* to load
+  them.
+
+**Modules II–IV** upload from your computer, so copy the bundled data to the
+host first:
+
+```bash
+./extract-test-data.sh            # -> ~/Downloads/scNexus-test-data
+./extract-test-data.sh /some/dir  # custom destination
+```
 
 ## Troubleshooting
 

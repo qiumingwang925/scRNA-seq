@@ -3,6 +3,7 @@
 .git
 .claude
 manuscript_R
+datasets
 **/.Rproj.user
 **/.Rhistory
 **/.RData
