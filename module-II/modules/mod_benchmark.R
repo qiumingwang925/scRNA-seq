@@ -261,6 +261,7 @@ mod.benchmark.server <- function(id, shared.data) {
         summarize(Median.Score = median(Score, na.rm = TRUE), .groups = 'drop') %>%
         pivot_wider(names_from = Metric, values_from = Median.Score) %>%
         dplyr::rename(Method = Integration) %>%
+        dplyr::select(Method, dplyr::any_of(c("basw", "casw", "ilisi", "clisi", "gilisi", "gclisi"))) %>%
         arrange(Method)
     }, digits = 3)
 
