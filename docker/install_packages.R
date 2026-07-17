@@ -33,7 +33,8 @@ cran.pkgs <- c(
 
 bioc.pkgs <- c(
   "glmGamPoi", "SingleR", "SingleCellExperiment",
-  "ComplexHeatmap", "biomaRt", "OmnipathR"
+  "ComplexHeatmap", "biomaRt", "OmnipathR",
+  "batchelor"  # FastMNN backend for SeuratWrappers (Module II)
 )
 
 # GitHub deps pinned to the exact commits from a known-good build (BUILD_VERSIONS.txt,
