@@ -36,6 +36,14 @@ split.by.choices <- function(obj) {
   candidates[candidates %in% colnames(obj@meta.data)]
 }
 
+# Returns the vars.to.regress candidate columns present in a Seurat object's
+# metadata, in fixed priority order. Defines the single set of variables the
+# Module III heatmap offers for ScaleData regression.
+vars.to.regress.choices <- function(obj) {
+  candidates <- c("nCount_RNA", "S.Score", "G2M.Score", "percent.mt", "percent.rp")
+  candidates[candidates %in% colnames(obj@meta.data)]
+}
+
 # --- Mouse / human ortholog conversion (for LIANA non-MouseConsensus resources) ---
 # biomaRt is namespace-qualified so sourcing utils.R does not require biomaRt.
 
