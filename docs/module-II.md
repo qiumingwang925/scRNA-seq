@@ -39,7 +39,8 @@ integrate.
 Normalize and remove batch effects between samples.
 
 1. Open the **Integration** tab.
-2. Choose a normalization method — **LogNormalize** (default) or SCTransform.
+2. Choose a normalization method — **LogNorm** (default) or SCTransform. The
+   available *Regress Factors* update to match the method.
 3. Choose a batch-integration method: **CCA**, **RPCA**, **Harmony**, or
    **FastMNN**.
 4. Run integration, then inspect the UMAP colored by sample — well-integrated
