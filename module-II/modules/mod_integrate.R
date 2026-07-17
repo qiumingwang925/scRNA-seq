@@ -8,9 +8,7 @@ mod.integrate.ui <- function(id) {
                             choices = c("LogNorm" = "LogNormalize", "SCTransform" = "SCT")),
 
                selectInput(ns("vars.regress"), "Regress Factors:",
-                           choices = c("nCount_RNA", "percent.mt", "percent.ribo", "S.Score", "G2M.Score"),
-                           selected = c("nCount_RNA", "percent.mt"),
-                           multiple = TRUE),
+                           choices = NULL, selected = NULL, multiple = TRUE),
                hr(),
                h4("2. Integration"),
                checkboxGroupInput(ns("int.methods"), "Methods to Run:",
@@ -36,23 +34,33 @@ mod.integrate.server <- function(id, shared.data) {
     # --- UI LOGIC: Disable FastMNN if SCT is selected ---
     observeEvent(input$norm.method, {
       if (input$norm.method == "SCT") {
-        # SCTransform already models sequencing depth, so nCount_RNA/percent.ribo
-        # are not offered as regressors here; FastMNN isn't supported on SCT.
         updateCheckboxGroupInput(session, "int.methods",
                                  choices = c("CCA", "RPCA", "Harmony"), # FastMNN removed
                                  selected = setdiff(input$int.methods, "FastMNN")
         )
-        regress.choices <- c("percent.mt", "S.Score", "G2M.Score")
       } else {
         updateCheckboxGroupInput(session, "int.methods",
                                  choices = c("CCA", "RPCA", "Harmony", "FastMNN"),
                                  selected = input$int.methods
         )
-        regress.choices <- c("nCount_RNA", "percent.mt", "percent.ribo", "S.Score", "G2M.Score")
+      }
+    })
+
+    # Regression factors depend on the normalization method AND on which columns
+    # the uploaded object actually carries. SCTransform models sequencing depth
+    # itself, so nCount_RNA/percent.ribo aren't offered there. Only metadata
+    # columns that exist are shown, and nothing is selected by default.
+    observe({
+      obj <- shared.data()
+      available <- if (is.null(obj)) character(0) else colnames(obj@meta.data)
+      candidates <- if (input$norm.method == "SCT") {
+        c("percent.mt", "S.Score", "G2M.Score")
+      } else {
+        c("nCount_RNA", "percent.mt", "percent.ribo", "S.Score", "G2M.Score")
       }
       updateSelectInput(session, "vars.regress",
-                        choices = regress.choices,
-                        selected = intersect(input$vars.regress, regress.choices))
+                        choices = intersect(candidates, available),
+                        selected = character(0))
     })
     
     processed.obj <- eventReactive(input$run.flow, {
