@@ -19,16 +19,25 @@ Seurat object, one pipeline step per tab.
 
 ## Step 1 — Import
 
-Load the Cell Ranger output into a Seurat object and compute per-cell QC metrics.
+Load a sample into a Seurat object and compute per-cell QC metrics. There are
+two ways to load — you only need one.
+
+**Option 1 — Cell Ranger MEX folder**
 
 1. Open the **Import** tab.
-2. Using the server-side file browser, select the sample folder
-   `test-data/21401X3/` (the one containing `barcodes.tsv.gz`,
-   `features.tsv.gz`, `matrix.mtx.gz`).
-3. Click **Load** to build the Seurat object. The app computes mitochondrial,
-   ribosomal, and hemoglobin percentages automatically.
+2. Under *Option 1*, click **Select** and browse to a Cell Ranger MEX folder —
+   the one containing `barcodes.tsv.gz`, `features.tsv.gz`, `matrix.mtx.gz`
+   (the bundled sample is `test-data/21401X3/`).
+3. Optionally adjust the sample ID and the cell/feature thresholds.
+4. Click **Convert**. The app builds the Seurat object and computes
+   mitochondrial, ribosomal, and hemoglobin percentages automatically.
 
-> 📷 **Screenshot:** _Import tab with `test-data/21401X3` selected, object loaded_ — `img/module-I/01-import.png`
+**Option 2 — Processed Seurat object**
+
+Under *Option 2*, upload an already-processed `.rds` object instead; any missing
+QC metrics are filled in on load.
+
+> 📷 **Screenshot:** _Import tab showing the two load options_ — `img/module-I/01-import.png`
 
 **Result:** a summary of the loaded object (cell and feature counts) and QC
 metric columns ready for the next step.
@@ -82,13 +91,12 @@ Detect and remove likely doublets with DoubletFinder.
 
 ## Step 5 — Cell Cycle Scoring
 
-Score each cell for cell-cycle phase.
+Score each cell for cell-cycle phase (mouse gene sets).
 
 1. Open the **Cell Cycle** tab.
-2. Select the species (mouse or human) so the correct gene sets are used.
-3. Run scoring and view the phase assignment on the UMAP.
+2. Click **Run Cell Cycle** and view the S and G2M phase scores on the UMAP.
 
-> 📷 **Screenshot:** _Cell Cycle tab UMAP colored by phase (G1/S/G2M)_ — `img/module-I/05-cellcycle.png`
+> 📷 **Screenshot:** _Cell Cycle tab UMAP colored by S and G2M phase scores_ — `img/module-I/05-cellcycle.png`
 
 **Result:** `S.Score`, `G2M.Score`, and `Phase` added to the object.
 
