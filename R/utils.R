@@ -28,6 +28,14 @@ get.categorical.meta <- function(obj) {
   names(cat.cols)[cat.cols]
 }
 
+# Returns the split-by candidate columns present in a Seurat object's metadata,
+# in fixed priority order. Defines the single set of variables the Module III
+# plots treat as valid split.by grouping columns.
+split.by.choices <- function(obj) {
+  candidates <- c("orig.ident", "batch", "group")
+  candidates[candidates %in% colnames(obj@meta.data)]
+}
+
 # --- Mouse / human ortholog conversion (for LIANA non-MouseConsensus resources) ---
 # biomaRt is namespace-qualified so sourcing utils.R does not require biomaRt.
 
