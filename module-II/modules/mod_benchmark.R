@@ -193,12 +193,10 @@ mod.benchmark.server <- function(id, shared.data) {
       for(m in list.metrics){
         rank.df <- summary.stats %>% filter(Method == m)
         # ilisi, gilisi, casw: Higher is Better. basw, clisi, gclisi: Lower is Better.
-        if(m %in% c("ilisi", "gilisi", "casw")) {
-          rank.df <- rank.df %>% arrange(desc(Median))
-        } else {
-          rank.df <- rank.df %>% arrange(Median)
-        }
-        rank.df$Rank <- seq(nrow(rank.df), 1)
+        # Orient so larger = better, then rank so the best gets the most points
+        # and tied medians share the same rank (ties.method = "max").
+        oriented <- if(m %in% c("ilisi", "gilisi", "casw")) rank.df$Median else -rank.df$Median
+        rank.df$Rank <- rank(oriented, ties.method = "max")
         rank.summary <- rbind(rank.summary, rank.df)
       }
 
