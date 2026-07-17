@@ -8,7 +8,7 @@ mod.integrate.ui <- function(id) {
                             choices = c("LogNorm" = "LogNormalize", "SCTransform" = "SCT")),
 
                selectInput(ns("vars.regress"), "Regress Factors:",
-                           choices = c("nCount_RNA", "percent.mt", "percent.rp", "S.Score", "G2M.Score"),
+                           choices = c("nCount_RNA", "percent.mt", "percent.ribo", "S.Score", "G2M.Score"),
                            selected = c("nCount_RNA", "percent.mt"),
                            multiple = TRUE),
                hr(),
@@ -36,7 +36,7 @@ mod.integrate.server <- function(id, shared.data) {
     # --- UI LOGIC: Disable FastMNN if SCT is selected ---
     observeEvent(input$norm.method, {
       if (input$norm.method == "SCT") {
-        # SCTransform already models sequencing depth, so nCount_RNA/percent.rp
+        # SCTransform already models sequencing depth, so nCount_RNA/percent.ribo
         # are not offered as regressors here; FastMNN isn't supported on SCT.
         updateCheckboxGroupInput(session, "int.methods",
                                  choices = c("CCA", "RPCA", "Harmony"), # FastMNN removed
@@ -48,7 +48,7 @@ mod.integrate.server <- function(id, shared.data) {
                                  choices = c("CCA", "RPCA", "Harmony", "FastMNN"),
                                  selected = input$int.methods
         )
-        regress.choices <- c("nCount_RNA", "percent.mt", "percent.rp", "S.Score", "G2M.Score")
+        regress.choices <- c("nCount_RNA", "percent.mt", "percent.ribo", "S.Score", "G2M.Score")
       }
       updateSelectInput(session, "vars.regress",
                         choices = regress.choices,
