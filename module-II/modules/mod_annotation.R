@@ -84,10 +84,13 @@ mod.annotation.server <- function(id, shared.data) {
     current.obj <- reactiveVal(NULL)
     subset.obj  <- reactiveVal(NULL) # Holds the newly calculated subset
     
-    # Load initial data
-    observe({
+    # Adopt the upstream object whenever integration (re)runs, so the reduction
+    # list and metadata reflect the latest run. Fires only on shared.data
+    # changes, not on the in-module mutations (clustering/labeling) that also
+    # write current.obj.
+    observeEvent(shared.data(), {
       req(shared.data())
-      if (is.null(current.obj())) current.obj(shared.data())
+      current.obj(shared.data())
     })
     
     # Update UI choices based on active object
