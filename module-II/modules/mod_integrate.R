@@ -14,14 +14,14 @@ mod.integrate.ui <- function(id) {
                checkboxGroupInput(ns("int.methods"), "Methods to Run:",
                                   choices = c("CCA", "RPCA", "Harmony", "FastMNN"),
                                   selected = c("CCA", "Harmony")),
-               
+
                actionButton(ns("run.flow"), "Run Pipeline", class = "btn-success btn-block")
              ),
-             
+
              mainPanel(
                h4("Pipeline Status Log"),
                verbatimTextOutput(ns("status.log")),
-               uiOutput(ns("finished.ui")) 
+               uiOutput(ns("finished.ui"))
              )
            )
   )
@@ -30,7 +30,7 @@ mod.integrate.ui <- function(id) {
 mod.integrate.server <- function(id, shared.data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
     # --- UI LOGIC: Disable FastMNN if SCT is selected ---
     observeEvent(input$norm.method, {
       if (input$norm.method == "SCT") {
@@ -62,45 +62,45 @@ mod.integrate.server <- function(id, shared.data) {
                         choices = intersect(candidates, available),
                         selected = character(0))
     })
-    
+
     processed.obj <- eventReactive(input$run.flow, {
       req(shared.data())
       options(future.globals.maxSize = 10 * 1024^3)
-      
+
       # Start with clean object
       raw.obj <- shared.data()
-      
+
       withProgress(message = 'Running Pipeline...', value = 0, {
-        
+
         # --- INITIALIZATION: SplitObject & Re-merge to create Layers ---
         incProgress(0.1, detail = "Initializing Batch Layers...")
         obj.list <- SplitObject(raw.obj, split.by = "batch")
         obj <- merge(obj.list[[1]], y = obj.list[2:length(obj.list)])
-        
+
         # --- STEP 1: PREPROCESSING ---
         if (input$norm.method == "LogNormalize") {
           target.assay <- "RNA"
           incProgress(0.1, detail = "Log-Normalizing...")
-          
+
           obj <- NormalizeData(obj)
           obj <- FindVariableFeatures(obj, nfeatures = 2000)
-          
+
           # Sync features across layers manually to be safe for FastMNN/RPCA
           #all_layers <- Layers(obj[[target.assay]], search = "data")
           #common_genes <- Reduce(intersect, lapply(all_layers, function(l) rownames(GetAssayData(obj, layer = l))))
           #features_to_integrate <- intersect(VariableFeatures(obj), common_genes)
           #VariableFeatures(obj) <- features_to_integrate
-          
+
           obj <- ScaleData(obj, vars.to.regress = input$vars.regress)
-          
+
           obj <- RunPCA(obj, verbose = FALSE)
           obj <- FindNeighbors(obj, reduction = "pca", dims = 1:30, graph.name = "snn")
           obj <- RunUMAP(obj, reduction = "pca", dims = 1:30, reduction.name = "umap", verbose = FALSE)
-          
+
         } else {
           target.assay <- "SCT"
           incProgress(0.2, detail = "Running SCTransform...")
-          
+
           # SCTransform handles the layered object automatically in v5. It picks
           # its own variable features (return.only.var.genes = TRUE), so no
           # separate FindVariableFeatures step is needed for the SCT path.
@@ -112,23 +112,23 @@ mod.integrate.server <- function(id, shared.data) {
           obj <- RunPCA(obj, assay = "SCT", verbose = FALSE)
           obj <- FindNeighbors(obj, reduction = "pca", dims = 1:30, graph.name = "snn")
           obj <- RunUMAP(obj, reduction = "pca", dims = 1:30, reduction.name = "umap", verbose = FALSE)
-          
+
         }
-        
+
         # --- STEP 2: INTEGRATION, CLUSTERING & UMAP ---
         methods <- input$int.methods
         method.map <- list(
-          "CCA"     = Seurat::CCAIntegration, 
-          "RPCA"    = Seurat::RPCAIntegration, 
-          "Harmony" = Seurat::HarmonyIntegration, 
+          "CCA"     = Seurat::CCAIntegration,
+          "RPCA"    = Seurat::RPCAIntegration,
+          "Harmony" = Seurat::HarmonyIntegration,
           "FastMNN" = SeuratWrappers::FastMNNIntegration
         )
-        
+
         for (m in methods) {
           incProgress(0.1, detail = paste("Processing", m))
           red.name <- paste0("integrated.", tolower(m))
           umap.name <- paste0("umap.", tolower(m))
-          
+
           obj <- tryCatch({
             if (input$norm.method == "SCT") {
               obj <- IntegrateLayers(
@@ -183,22 +183,22 @@ mod.integrate.server <- function(id, shared.data) {
             })
           }
         }
-        
-        
-        
+
+
+
         # --- STEP 3: FINALIZATION ---
-        
+
         incProgress(0.1, detail = "Finalizing Assay...")
-        
+
         # 1. Identify the class of the target assay
         assay.class <- class(obj[[target.assay]])
-        
+
         # 2. Logic-based Joining
         if (any(grepl("SCTAssay", assay.class))) {
           # IF SCT: We skip JoinLayers because SCTAssay doesn't support the method.
           # Most downstream v5 functions handle SCT layers automatically.
           message("SCTAssay detected. Skipping JoinLayers to prevent UseMethod error.")
-          
+
         } else {
           # IF RNA (Assay5): JoinLayers is supported and recommended.
           obj <- tryCatch({
@@ -208,14 +208,14 @@ mod.integrate.server <- function(id, shared.data) {
             return(obj)
           })
         }
-        
+
         # 3. Set Default Assay
         DefaultAssay(obj) <- target.assay
-        
+
         return(obj)
       })
     })
-    
+
     output$status.log <- renderPrint({
       req(processed.obj())
       obj <- processed.obj()
@@ -223,7 +223,7 @@ mod.integrate.server <- function(id, shared.data) {
       cat("Normalization: ", input$norm.method, "\n")
       cat("Reductions:    ", paste(names(obj@reductions), collapse = ", "), "\n")
     })
-    
+
     return(processed.obj)
   })
 }
