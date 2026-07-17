@@ -14,8 +14,7 @@ mod.import.ui <- function(id) {
         column(1, shinyDirButton(ns("folder"), "Select", title = "Select a sample folder", multiple = FALSE, class = "btn-success", style = "width: 100px;"))
       ),
       fluidRow(
-        column(2, verbatimTextOutput(ns("mex"), placeholder = FALSE)),
-        column(3, textOutput(ns("cell.count")))
+        column(4, verbatimTextOutput(ns("mex"), placeholder = FALSE))
       ),
       fluidRow(
         column(2, textInput(ns("project.name"), "Create a Sample ID", value = "")),
@@ -36,6 +35,7 @@ mod.import.ui <- function(id) {
     ),
     wellPanel(
       strong("QC Overview"),
+      textOutput(ns("cell.count")),
       shinycssloaders::withSpinner(plotOutput(ns("plot.raw.vln"), height = "400px", width = "1000px")),
       shinycssloaders::withSpinner(plotOutput(ns("plot.raw.dst"), height = "150px", width = "1000px"))
     )
