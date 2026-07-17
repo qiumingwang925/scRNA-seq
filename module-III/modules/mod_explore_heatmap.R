@@ -14,6 +14,13 @@ mod.explore.heatmap.ui <- function(id) {
           column(6, actionButton(ns("btn.clear.all"), "Clear",
                                  class = "btn-default", style = "width:100%"))
         ),
+        selectInput(ns("subset.meta.col"), "Metadata Column:",
+                    choices = c("None"), selected = "None"),
+        conditionalPanel(
+          condition = sprintf("input['%s'] != 'None'", ns("subset.meta.col")),
+          selectInput(ns("subset.meta.vals"), "Select Value(s):",
+                      choices = NULL, multiple = TRUE)
+        ),
         hr(),
         radioButtons(ns("gene.mode"), "Gene Selection:",
                      choices = c("Highly Variable Genes" = "hvg",
@@ -58,6 +65,15 @@ mod.explore.heatmap.server <- function(id, shared.data) {
                         choices = ident.levels, selected = ident.levels)
       updateSelectInput(session, "vars.to.regress",
                         choices = vars.to.regress.choices(obj))
+      updateSelectInput(session, "subset.meta.col",
+                        choices = c("None", split.by.choices(obj)), selected = "None")
+    })
+
+    # Cascade: metadata column -> its values
+    observeEvent(input$subset.meta.col, {
+      req(shared.data(), input$subset.meta.col != "None")
+      vals <- unique(as.character(shared.data()@meta.data[[input$subset.meta.col]]))
+      updateSelectInput(session, "subset.meta.vals", choices = vals, selected = vals)
     })
 
     observeEvent(input$btn.select.all, {
@@ -81,6 +97,13 @@ mod.explore.heatmap.server <- function(id, shared.data) {
       idents.selected <- input$select.idents
       validate(need(length(idents.selected) > 0, "Please select at least one cell type."))
       obj <- subset(obj, idents = idents.selected)
+
+      if (input$subset.meta.col != "None" && length(input$subset.meta.vals) > 0) {
+        meta.mask <- obj@meta.data[[input$subset.meta.col]] %in% input$subset.meta.vals
+        cells.keep <- colnames(obj)[meta.mask]
+        validate(need(length(cells.keep) > 0, "No cells match the selected metadata values."))
+        obj <- subset(obj, cells = cells.keep)
+      }
 
       withProgress(message = "Generating heatmap...", value = 0, {
 
