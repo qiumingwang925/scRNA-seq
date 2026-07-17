@@ -101,6 +101,13 @@ mod.explore.umap.ui <- function(id) {
                                      class = "btn-default", style = "width:100%"))
             ),
             hr(),
+            selectInput(ns("highlight.split.by"), "Split By (optional):",
+                        choices = c("None"), selected = "None"),
+            conditionalPanel(
+              condition = sprintf("input['%s'] != 'None'", ns("highlight.split.by")),
+              numericInput(ns("highlight.grid.ncol"), "Grid Columns", value = 2, min = 1, max = 6)
+            ),
+            hr(),
             h4("Download Figure"),
             numericInput(ns("fig.highlight.w"), "Width (inches)", value = 8, min = 2, max = 20),
             numericInput(ns("fig.highlight.h"), "Height (inches)", value = 6, min = 2, max = 20),
@@ -180,12 +187,15 @@ mod.explore.umap.server <- function(id, shared.data) {
       ident.levels <- levels(shared.data())
       updateSelectInput(session, "select.idents",
                         choices = ident.levels, selected = ident.levels)
-      # Populate categorical metadata selectors
-      cat.cols <- get.categorical.meta(shared.data())
+      # Populate metadata selectors
+      split.choices <- split.by.choices(shared.data())
+      updateSelectInput(session, "highlight.split.by",
+                        choices = c("None", split.choices), selected = "None")
       updateSelectInput(session, "split.by",
-                        choices = c("None", cat.cols), selected = "None")
+                        choices = c("None", split.choices), selected = "None")
+      # Co-expression subsetting still spans all categorical columns
       updateSelectInput(session, "coexpr.meta",
-                        choices = c("None", cat.cols), selected = "None")
+                        choices = c("None", get.categorical.meta(shared.data())), selected = "None")
     })
 
     # Reactive for detected slots on active object
@@ -306,7 +316,11 @@ mod.explore.umap.server <- function(id, shared.data) {
         if (id %in% names(pal)) display.pal[id] <- pal[id]
       }
 
-      p <- DimPlot(obj, reduction = slots$reduction, cols = display.pal) + theme_minimal()
+      split.col <- if (input$highlight.split.by == "None") NULL else input$highlight.split.by
+      split.ncol <- if (is.null(split.col)) NULL else input$highlight.grid.ncol
+
+      p <- DimPlot(obj, reduction = slots$reduction, cols = display.pal,
+                   split.by = split.col, ncol = split.ncol) + theme_minimal()
 
       # Keep only highlighted types in the legend
       if (length(idents.selected) < length(all.idents)) {

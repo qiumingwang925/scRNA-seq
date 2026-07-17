@@ -45,9 +45,8 @@ mod.explore.violin.server <- function(id, shared.data) {
       ident.levels <- levels(obj)
       updateSelectInput(session, "select.idents",
                         choices = ident.levels, selected = ident.levels)
-      cat.cols <- get.categorical.meta(obj)
       updateSelectInput(session, "split.by",
-                        choices = c("None", cat.cols), selected = "None")
+                        choices = c("None", split.by.choices(obj)), selected = "None")
     })
 
     observeEvent(input$btn.select.all, {
