@@ -129,7 +129,7 @@ A modular Shiny web application offering two parallel cell-cell communication en
 - **Language:** R
 - **Framework:** Shiny
 - **Core packages:** Seurat, DoubletFinder, ggplot2, plotly, tidyverse, glmGamPoi, shinyFiles, shinyjs, ggpubr, shinycssloaders
-- **Module II additional packages:** SeuratWrappers, SeuratObject, presto, cluster, lisi, Matrix
+- **Module II additional packages:** SeuratWrappers, SeuratObject, presto, cluster, lisi, Matrix, batchelor (FastMNN backend)
 - **Module III additional packages:** enrichR, openxlsx
 - **Module IV additional packages:** CellChat (jinworks/CellChat), ComplexHeatmap, NMF, ggalluvial, ggplotify, future, liana (saezlab/liana), OmnipathR, biomaRt, entropy, digest
 

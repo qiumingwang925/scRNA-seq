@@ -16,6 +16,7 @@ load.or.install("glmGamPoi") #SCTransform
 load.or.install("ggpubr")
 load.or.install("presto", github.url = "immunogenomics/presto")
 load.or.install("harmony")
+load.or.install("batchelor")  #FastMNN backend for SeuratWrappers
 load.or.install("cluster")  #ASW
 load.or.install("lisi", github.url = "immunogenomics/lisi") #LISI
 load.or.install("Matrix")   #Graph LISI
