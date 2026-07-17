@@ -56,10 +56,8 @@ mod.explore.heatmap.server <- function(id, shared.data) {
       ident.levels <- levels(obj)
       updateSelectInput(session, "select.idents",
                         choices = ident.levels, selected = ident.levels)
-      # Populate vars.to.regress with numeric metadata columns
-      meta <- obj@meta.data
-      num.cols <- names(meta)[sapply(meta, is.numeric)]
-      updateSelectInput(session, "vars.to.regress", choices = num.cols)
+      updateSelectInput(session, "vars.to.regress",
+                        choices = vars.to.regress.choices(obj))
     })
 
     observeEvent(input$btn.select.all, {
