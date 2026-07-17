@@ -48,7 +48,7 @@ mod.integrate.server <- function(id, shared.data) {
 
     # Regression factors depend on the normalization method AND on which columns
     # the uploaded object actually carries. SCTransform models sequencing depth
-    # itself, so nCount_RNA/percent.ribo aren't offered there. Only metadata
+    # itself, so nCount_RNA/percent.rp aren't offered there. Only metadata
     # columns that exist are shown, and nothing is selected by default.
     observe({
       obj <- shared.data()
@@ -56,7 +56,7 @@ mod.integrate.server <- function(id, shared.data) {
       candidates <- if (input$norm.method == "SCT") {
         c("percent.mt", "S.Score", "G2M.Score")
       } else {
-        c("nCount_RNA", "percent.mt", "percent.ribo", "S.Score", "G2M.Score")
+        c("nCount_RNA", "percent.mt", "percent.rp", "S.Score", "G2M.Score")
       }
       updateSelectInput(session, "vars.regress",
                         choices = intersect(candidates, available),
