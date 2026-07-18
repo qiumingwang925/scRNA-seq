@@ -12,8 +12,6 @@ mod.interact.cellchat.comp.ui <- function(id) {
         radioButtons(ns("assay"), "Assay:",
                      choices = c("RNA" = "RNA", "SCT" = "SCT"),
                      selected = "RNA"),
-        numericInput(ns("workers"), "Parallel workers:",
-                     value = 1, min = 1, max = 16, step = 1),
         hr(),
         actionButton(ns("run"), "Run CellChat Analysis",
                      class = "btn-success", style = "width:100%"),
@@ -53,12 +51,11 @@ mod.interact.cellchat.comp.server <- function(id, shared.data) {
       groups <- sort(unique(obj$group))
       species <- input$species
       assay.name <- input$assay
-      workers <- input$workers
 
       cellchat.db <- if (species == "mouse") CellChatDB.mouse else CellChatDB.human
       cellchat.db <- subsetDB(cellchat.db, search = "Secreted Signaling", key = "annotation")
 
-      future::plan("multisession", workers = workers)
+      future::plan("multisession", workers = 1)
       options(future.globals.maxSize = 10 * 1024^3)
 
       withProgress(message = "Running CellChat...", value = 0, {
