@@ -5,19 +5,6 @@
 # common.controls.ui, resolve.sel, placeholder.*) come from mod_interact_vis_helpers.R
 # which app.R sources before this file.
 
-check.python.umap <- function() {
-  if (!requireNamespace("reticulate", quietly = TRUE)) {
-    return(list(ok = FALSE, msg = "R package 'reticulate' is not installed."))
-  }
-  ok <- tryCatch(reticulate::py_module_available("umap"), error = function(e) FALSE)
-  if (!ok) {
-    return(list(ok = FALSE,
-                msg = paste("Python module 'umap-learn' not available.",
-                            "Install via: reticulate::py_install('umap-learn').")))
-  }
-  list(ok = TRUE, msg = "")
-}
-
 # ---------- UI ----------
 
 mod.interact.cellchat.vis.ui <- function(id) {
@@ -145,8 +132,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
               radioButtons(ns("pat.sim.type"), "Similarity type:",
                            choices = c("Functional" = "functional",
                                        "Structural" = "structural"),
-                           selected = "functional"),
-              helpText("Manifold requires Python 'umap-learn' via reticulate.")
+                           selected = "functional")
             ),
             common.controls.ui(ns, "pat", default.cols = 2)
           ),
@@ -512,16 +498,11 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       res <- cellchat.data(); req(res, input$pat.plot)
 
       if (input$pat.plot == "manifold") {
-        check <- check.python.umap()
-        if (!check$ok) {
-          plot.new(); title(paste("Manifold unavailable:\n", check$msg))
-          return(invisible())
-        }
         req(input$pat.sim.type)
         merged <- res$cellchat.merged
         tryCatch({
           merged <- computeNetSimilarityPairwise(merged, type = input$pat.sim.type)
-          merged <- netEmbedding(merged, type = input$pat.sim.type)
+          merged <- netEmbedding(merged, type = input$pat.sim.type, umap.method = "uwot")
           merged <- netClustering(merged, type = input$pat.sim.type, do.parallel = FALSE)
           print(netVisual_embeddingPairwise(merged, type = input$pat.sim.type, label.size = 3.5))
         }, error = function(e) {
