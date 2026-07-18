@@ -17,8 +17,6 @@ mod.interact.liana.comp.ui <- function(id) {
                            choices = c("natmi", "connectome", "logfc", "sca",
                                        "cellphonedb", "cytotalk", "call_cellchat"),
                            selected = c("natmi", "connectome", "sca", "cellphonedb")),
-        numericInput(ns("workers"), "Parallel workers:",
-                     value = 1, min = 1, max = 16, step = 1),
         numericInput(ns("min.cells"), "Min cells per group:",
                      value = 10, min = 1, max = 10000, step = 1),
         hr(),
@@ -83,12 +81,11 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
       assay.name <- input$assay
       resource <- input$resource
       methods <- input$methods
-      workers <- input$workers
       min.cells <- input$min.cells
 
       needs.conversion <- species == "mouse" && resource != "MouseConsensus"
 
-      future::plan("multisession", workers = workers)
+      future::plan("multisession", workers = 1)
       options(future.globals.maxSize = 10 * 1024^3)
 
       withProgress(message = "Running LIANA...", value = 0, {
