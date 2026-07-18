@@ -185,3 +185,7 @@ return(list(seurat.obj = <reactive>, completed = <reactiveVal>))
 
 The platform progresses from individual-sample processing through integrated multi-sample analysis to downstream exploration and cell-cell communication.
 
+## Branching Workflow
+
+Non-Docker features (analysis modules, shared code, docs) are implemented on a feature branch or `main` first — never directly on `feature/docker-demo`. The `feature/docker-demo` branch is then synced by merging `main` into it. This keeps Docker-only files (`docker/`, `docker-compose.yml`, `.dockerignore`, etc.) isolated to the docker branch, so merging `main` into it stays conflict-free.
+
