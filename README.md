@@ -27,6 +27,8 @@ This platform provides a modular interface for analyzing scRNA-seq data, coverin
 
 See `module-I/requirement.md` for dependencies and setup instructions.
 
+**Docker:** a one-command Docker Compose setup is available on the `feature/docker-demo` branch (see `docker/` and `docker-compose.yml`).
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
