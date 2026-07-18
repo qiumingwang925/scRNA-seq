@@ -55,7 +55,7 @@ mod.interact.cellchat.comp.server <- function(id, shared.data) {
       cellchat.db <- if (species == "mouse") CellChatDB.mouse else CellChatDB.human
       cellchat.db <- subsetDB(cellchat.db, search = "Secreted Signaling", key = "annotation")
 
-      future::plan("multisession", workers = 1)
+      future::plan("sequential")
       options(future.globals.maxSize = 10 * 1024^3)
 
       withProgress(message = "Running CellChat...", value = 0, {

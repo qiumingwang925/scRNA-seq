@@ -85,7 +85,7 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
 
       needs.conversion <- species == "mouse" && resource != "MouseConsensus"
 
-      future::plan("multisession", workers = 1)
+      future::plan("sequential")
       options(future.globals.maxSize = 10 * 1024^3)
 
       withProgress(message = "Running LIANA...", value = 0, {
