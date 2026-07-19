@@ -116,12 +116,12 @@ mod.interact.cellchat.vis.ui <- function(id) {
         sidebarLayout(
           sidebarPanel(width = 3,
             h4("Patterns"),
+            # "heat" (pattern heatmap) and "manifold" are temporarily hidden pending a
+            # fix for deeper issues; their server branches below are kept for re-enabling.
             radioButtons(ns("pat.plot"), "Plot type:",
-                         choices = c("Pattern heatmap (select k)" = "heat",
-                                     "River" = "river",
-                                     "Dot" = "dot",
-                                     "Manifold & Classification" = "manifold"),
-                         selected = "heat"),
+                         choices = c("River" = "river",
+                                     "Dot" = "dot"),
+                         selected = "river"),
             conditionalPanel(
               condition = sprintf("input['%s'] != 'manifold'", ns("pat.plot")),
               selectInput(ns("pat.group"), "Group:", choices = NULL),
@@ -431,9 +431,6 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
                        color.heatmap = "Reds", title.name = g)
           if (s$active) args$sources.use <- s$use
           if (t$active) args$targets.use <- t$use
-          # netVisual_heatmap keeps every cell type as a row/col even after source/
-          # target filtering (fills the rest with zeros); drop those empty rows/cols.
-          if (s$active || t$active) args$remove.isolate <- TRUE
           return(do.call(netVisual_heatmap, args))
         }
 
