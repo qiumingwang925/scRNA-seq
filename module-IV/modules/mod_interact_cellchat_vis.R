@@ -467,9 +467,14 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     # Returns the subset CellChat object, or a character message the caller renders
     # as a placeholder. When the user hasn't narrowed the set, returns cc unchanged.
     subset.for.idents <- function(cc, sel) {
-      s <- resolve.sel(levels(cc@idents), sel, ident.choices())
+      present <- levels(cc@idents)
+      s <- resolve.sel(present, sel, ident.choices())
       if (!s$active) return(cc)
       if (s$empty) return("selected cell types absent in this group")
+      # Only subset a PROPER subset of THIS group's cell types. Removing a type
+      # that this group never had would otherwise trigger a no-op subsetCellChat
+      # recompute, which errors on some objects.
+      if (setequal(s$use, present)) return(cc)
       if (length(s$use) < 2) return("select ≥ 2 cell types")
       tryCatch(subsetCellChat(cc, idents.use = s$use),
                error = function(e) paste("subset failed:", conditionMessage(e)))
@@ -516,15 +521,17 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         cc <- compute.centrality(sub)
 
         if (input$sig.plot == "scatter") {
-          add(netAnalysis_signalingRole_scatter(cc) + ggtitle(g), g)
+          add(tryCatch(netAnalysis_signalingRole_scatter(cc) + ggtitle(g),
+                       error = function(e) placeholder.gg(g, conditionMessage(e))), g)
         } else if (input$sig.plot == "heatmap") {
           pw.use <- if (is.null(sig.pw)) NULL else intersect(sig.pw, cc@netP$pathways)
           if (!is.null(sig.pw) && length(pw.use) == 0) {
             add(placeholder.ht(g, "selected pathways absent"), g)
           } else {
-            add(netAnalysis_signalingRole_heatmap(
+            add(tryCatch(netAnalysis_signalingRole_heatmap(
                   cc, signaling = pw.use, pattern = input$sig.pattern,
-                  width = panel.w.cm * 0.5, height = panel.h.cm * 0.65, title = g), g)
+                  width = panel.w.cm * 0.5, height = panel.h.cm * 0.65, title = g),
+                  error = function(e) placeholder.ht(g, conditionMessage(e))), g)
           }
         } else {  # score: one panel per selected pathway
           for (pw in sig.pw) local({
