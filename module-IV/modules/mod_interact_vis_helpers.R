@@ -46,9 +46,6 @@ common.controls.ui <- function(ns, prefix, default.cols = 2,
                                dl.label = "Download Figure") {
   tagList(
     hr(),
-    actionButton(ns(paste0(prefix, ".plot.btn")), "Generate Plot",
-                 class = "btn-success", style = "width:100%"),
-    hr(),
     h5("Figure controls"),
     numericInput(ns(paste0(prefix, ".cols")), "Columns per row:",
                  value = default.cols, min = 1, max = 6, step = 1),
@@ -56,6 +53,9 @@ common.controls.ui <- function(ns, prefix, default.cols = 2,
                  value = 10, min = 3, max = 30, step = 1),
     numericInput(ns(paste0(prefix, ".height")), "Height (inches):",
                  value = 6, min = 3, max = 30, step = 1),
+    hr(),
+    actionButton(ns(paste0(prefix, ".plot.btn")), "Generate Plot",
+                 class = "btn-success", style = "width:100%"),
     downloadButton(ns(paste0(prefix, ".download")), dl.label, style = "width:100%")
   )
 }
