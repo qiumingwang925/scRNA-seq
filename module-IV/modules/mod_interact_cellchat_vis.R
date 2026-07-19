@@ -244,25 +244,46 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     })
 
 
-    # Auto-size plot output based on user width/height
-    plot.output <- function(prefix) {
+    # Number of panels each tab draws, so the canvas can grow with the grid rather
+    # than cramming every panel into a fixed height (which squeezed titles at cols=1).
+    n.panels.global <- reactive({ res <- cellchat.data(); req(res); length(res$group.levels) })
+    n.panels.zoom   <- reactive({ res <- cellchat.data(); req(res); length(res$group.levels) })
+    n.panels.sig <- reactive({
+      res <- cellchat.data(); req(res)
+      if (identical(input$sig.plot, "score"))
+        length(res$group.levels) * max(1L, length(nz(input$sig.pathway)))
+      else length(res$group.levels)
+    })
+    n.panels.pat <- reactive({ if (identical(input$pat.plot, "manifold")) 1L else 2L })
+
+    grid.cols <- function(prefix) max(1L, input[[paste0(prefix, ".cols")]] %||% 1L)
+
+    # Width/Height sliders are PER PANEL: total canvas = width x cols by height x rows,
+    # so each panel keeps its full size no matter how the grid wraps.
+    total.w <- function(prefix) reactive(input[[paste0(prefix, ".width")]] * grid.cols(prefix))
+    total.h <- function(prefix, n.panels) reactive(
+      input[[paste0(prefix, ".height")]] * ceiling(n.panels() / grid.cols(prefix)))
+
+    plot.output <- function(prefix, n.panels) {
       renderUI({
         w <- input[[paste0(prefix, ".width")]]
         h <- input[[paste0(prefix, ".height")]]
         req(w, h)
+        cols <- grid.cols(prefix)
+        rows <- ceiling(n.panels() / cols)
         shinycssloaders::withSpinner(
           plotOutput(ns(paste0(prefix, ".plot")),
-                     width = paste0(w * 96, "px"),
-                     height = paste0(h * 96, "px")),
+                     width = paste0(w * cols * 96, "px"),
+                     height = paste0(h * rows * 96, "px")),
           type = 6
         )
       })
     }
 
-    output$global.plot.ui <- plot.output("global")
-    output$zoom.plot.ui <- plot.output("zoom")
-    output$sig.plot.ui <- plot.output("sig")
-    output$pat.plot.ui <- plot.output("pat")
+    output$global.plot.ui <- plot.output("global", n.panels.global)
+    output$zoom.plot.ui <- plot.output("zoom", n.panels.zoom)
+    output$sig.plot.ui <- plot.output("sig", n.panels.sig)
+    output$pat.plot.ui <- plot.output("pat", n.panels.pat)
 
     # =====================================================
     # Subtab 1: Global network
@@ -335,8 +356,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
     make.render.and.download(output, session, "global.plot", "global.download",
       global.thunk,
-      width.in = reactive(input$global.width),
-      height.in = reactive(input$global.height),
+      width.in = total.w("global"),
+      height.in = total.h("global", n.panels.global),
       filename.stem = reactive(paste0("global_", input$global.plot, "_", input$global.measure)),
       trigger = reactive(input$global.plot.btn))
 
@@ -442,8 +463,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
     make.render.and.download(output, session, "zoom.plot", "zoom.download",
       zoom.thunk,
-      width.in = reactive(input$zoom.width),
-      height.in = reactive(input$zoom.height),
+      width.in = total.w("zoom"),
+      height.in = total.h("zoom", n.panels.zoom),
       filename.stem = reactive(paste0("zoom_", input$zoom.plot, "_", input$zoom.pathway)),
       trigger = reactive(input$zoom.plot.btn))
 
@@ -498,14 +519,11 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         return(plot.grid(list(placeholder.gg("Score", "select ≥ 1 pathway")), 1))
       }
 
-      # Score expands to one panel per (group, pathway); the others are one per group.
-      n.panels <- if (input$sig.plot == "score") length(grps) * length(sig.pw) else length(grps)
-      # CellChat's heatmap/network draw at absolute cm sizes, so they ignore the
-      # canvas unless we scale them. Feed the figure sliders through, per panel; the
-      # fractions leave room for row/column labels, legend, and title.
-      nrow <- ceiling(n.panels / ncol)
-      panel.w.cm <- (input$sig.width %||% 10) / ncol * 2.54
-      panel.h.cm <- (input$sig.height %||% 6) / nrow * 2.54
+      # CellChat's heatmap/network draw at absolute cm sizes, so scale them to the
+      # per-panel figure size (each panel is width x height inches). The fractions
+      # leave room for row/column labels, legend, and title.
+      panel.w.cm <- (input$sig.width %||% 10) * 2.54
+      panel.h.cm <- (input$sig.height %||% 6) * 2.54
 
       items <- list(); titles <- character()
       add <- function(item, title) {
@@ -561,8 +579,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
     make.render.and.download(output, session, "sig.plot", "sig.download",
       sig.thunk,
-      width.in = reactive(input$sig.width),
-      height.in = reactive(input$sig.height),
+      width.in = total.w("sig"),
+      height.in = total.h("sig", n.panels.sig),
       filename.stem = reactive(paste0("signaling_", input$sig.plot)),
       trigger = reactive(input$sig.plot.btn))
 
@@ -639,8 +657,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
     make.render.and.download(output, session, "pat.plot", "pat.download",
       pat.thunk,
-      width.in = reactive(input$pat.width),
-      height.in = reactive(input$pat.height),
+      width.in = total.w("pat"),
+      height.in = total.h("pat", n.panels.pat),
       filename.stem = reactive(paste0("patterns_", input$pat.plot)),
       trigger = reactive(input$pat.plot.btn))
 
