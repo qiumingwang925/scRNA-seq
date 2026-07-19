@@ -37,7 +37,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
                          selected = "weight"),
             cell.type.selector.ui(ns, "global.sources", "Sources:"),
             cell.type.selector.ui(ns, "global.targets", "Targets:"),
-            common.controls.ui(ns, "global", default.cols = 2)
+            common.controls.ui(ns, "global", default.cols = 1)
           ),
           mainPanel(width = 9,
             uiOutput(ns("global.plot.ui"))
@@ -71,7 +71,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
             cell.type.selector.ui(ns, "zoom.sources", "Sources:"),
             cell.type.selector.ui(ns, "zoom.targets",
                                   "Targets (also used as hierarchy receivers):"),
-            common.controls.ui(ns, "zoom", default.cols = 2)
+            common.controls.ui(ns, "zoom", default.cols = 1)
           ),
           mainPanel(width = 9,
             uiOutput(ns("zoom.plot.ui"))
@@ -90,8 +90,9 @@ mod.interact.cellchat.vis.ui <- function(id) {
                                      "Heatmap (pathway × cell type)" = "heatmap"),
                          selected = "scatter"),
             conditionalPanel(
-              condition = sprintf("input['%s'] == 'score'", ns("sig.plot")),
-              selectInput(ns("sig.pathway"), "Pathway (score only):", choices = NULL)
+              condition = sprintf("['score','heatmap'].indexOf(input['%s']) >= 0",
+                                  ns("sig.plot")),
+              selectInput(ns("sig.pathway"), "Pathways:", choices = NULL, multiple = TRUE)
             ),
             conditionalPanel(
               condition = sprintf("input['%s'] == 'heatmap'", ns("sig.plot")),
@@ -101,7 +102,8 @@ mod.interact.cellchat.vis.ui <- function(id) {
                                        "All" = "all"),
                            selected = "all")
             ),
-            common.controls.ui(ns, "sig", default.cols = 2)
+            cell.type.selector.ui(ns, "sig.idents", "Cell types (subset):"),
+            common.controls.ui(ns, "sig", default.cols = 1)
           ),
           mainPanel(width = 9,
             uiOutput(ns("sig.plot.ui"))
@@ -125,6 +127,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
               selectInput(ns("pat.group"), "Group:", choices = NULL),
               numericInput(ns("pat.k"), "Number of patterns (k):",
                            value = 3, min = 2, max = 10, step = 1),
+              cell.type.selector.ui(ns, "pat.idents", "Cell types (subset):"),
               helpText("Shows outgoing and incoming patterns side by side.")
             ),
             conditionalPanel(
@@ -134,7 +137,7 @@ mod.interact.cellchat.vis.ui <- function(id) {
                                        "Structural" = "structural"),
                            selected = "functional")
             ),
-            common.controls.ui(ns, "pat", default.cols = 2)
+            common.controls.ui(ns, "pat", default.cols = 1)
           ),
           mainPanel(width = 9,
             uiOutput(ns("pat.plot.ui"))
@@ -214,8 +217,9 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       pw <- pathway.choices()
       updateSelectInput(session, "zoom.pathway", choices = pw,
                         selected = if (length(pw)) pw[1] else NULL)
-      updateSelectInput(session, "sig.pathway", choices = pw,
-                        selected = if (length(pw)) pw[1] else NULL)
+      # Multi-select shared by heatmap (empty = all pathways) and score (empty =
+      # prompt for a pathway), so default to no selection rather than the first.
+      updateSelectInput(session, "sig.pathway", choices = pw, selected = character(0))
     })
 
     observe({
@@ -228,6 +232,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     wire.cell.type.selector(input, session, "global.targets", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.sources", ident.choices, selected.all = TRUE)
     wire.cell.type.selector(input, session, "zoom.targets", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "sig.idents", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "pat.idents", ident.choices, selected.all = TRUE)
 
     observe({
       res <- cellchat.data()
@@ -265,7 +271,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     global.thunk <- function() {
       res <- cellchat.data(); req(res, input$global.plot, input$global.measure)
       grps <- res$group.levels
-      ncol <- input$global.cols %||% 2
+      ncol <- input$global.cols %||% 1
       all.idents <- ident.choices()
       srcs <- input$global.sources; tgts <- input$global.targets
       measure <- input$global.measure
@@ -341,7 +347,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     zoom.thunk <- function() {
       res <- cellchat.data(); req(res, input$zoom.plot, input$zoom.pathway)
       grps <- res$group.levels
-      ncol <- input$zoom.cols %||% 2
+      ncol <- input$zoom.cols %||% 1
       pw <- input$zoom.pathway
       lr <- input$zoom.lr
       srcs <- nz(input$zoom.sources); tgts <- nz(input$zoom.targets)
@@ -454,33 +460,89 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       cc
     }
 
+    # Restrict a CellChat object to the user-selected cell types for the
+    # Signaling / Patterns tabs. subsetCellChat slices the existing prob array and
+    # RECOMPUTES pathway aggregation + centrality on the sub-network, so these plots
+    # show signaling roles *within* the selected subset (not full-network roles).
+    # Returns the subset CellChat object, or a character message the caller renders
+    # as a placeholder. When the user hasn't narrowed the set, returns cc unchanged.
+    subset.for.idents <- function(cc, sel) {
+      s <- resolve.sel(levels(cc@idents), sel, ident.choices())
+      if (!s$active) return(cc)
+      if (s$empty) return("selected cell types absent in this group")
+      if (length(s$use) < 2) return("select ≥ 2 cell types")
+      tryCatch(subsetCellChat(cc, idents.use = s$use),
+               error = function(e) paste("subset failed:", conditionMessage(e)))
+    }
+
     sig.thunk <- function() {
       res <- cellchat.data(); req(res, input$sig.plot)
       grps <- res$group.levels
-      ncol <- input$sig.cols %||% 2
+      ncol <- max(1, input$sig.cols %||% 1)
+      sig.pw <- nz(input$sig.pathway)
 
-      items <- lapply(grps, function(g) {
-        force(g)
-        cc <- compute.centrality(res$cellchat.list[[g]])
-        if (input$sig.plot == "scatter") {
-          return(netAnalysis_signalingRole_scatter(cc) + ggtitle(g))
-        }
-        if (input$sig.plot == "heatmap") {
-          return(netAnalysis_signalingRole_heatmap(
-            cc, pattern = input$sig.pattern,
-            width = 5, height = 8, title = g))
-        }
-        # score: base graphics via netAnalysis_signalingRole_network
-        function() {
-          req(input$sig.pathway)
-          if (!input$sig.pathway %in% cc@netP$pathways) {
-            plot.new(); title(paste0(g, "\n(pathway absent)")); return(invisible())
+      # Score is inherently per-pathway; without a pathway there is nothing to draw.
+      if (input$sig.plot == "score" && is.null(sig.pw)) {
+        return(plot.grid(list(placeholder.gg("Score", "select ≥ 1 pathway")), 1))
+      }
+
+      # Score expands to one panel per (group, pathway); the others are one per group.
+      n.panels <- if (input$sig.plot == "score") length(grps) * length(sig.pw) else length(grps)
+      # CellChat's heatmap/network draw at absolute cm sizes, so they ignore the
+      # canvas unless we scale them. Feed the figure sliders through, per panel; the
+      # fractions leave room for row/column labels, legend, and title.
+      nrow <- ceiling(n.panels / ncol)
+      panel.w.cm <- (input$sig.width %||% 10) / ncol * 2.54
+      panel.h.cm <- (input$sig.height %||% 6) / nrow * 2.54
+
+      items <- list(); titles <- character()
+      add <- function(item, title) {
+        items[[length(items) + 1]] <<- item
+        titles[[length(titles) + 1]] <<- title
+      }
+
+      for (g in grps) {
+        sub <- subset.for.idents(res$cellchat.list[[g]], input$sig.idents)
+        if (is.character(sub)) {
+          if (input$sig.plot == "score") {
+            for (pw in sig.pw) add(placeholder.gg(g, sub), paste0(g, " — ", pw))
+          } else if (input$sig.plot == "heatmap") {
+            add(placeholder.ht(g, sub), g)
+          } else {
+            add(placeholder.gg(g, sub), g)
           }
-          netAnalysis_signalingRole_network(cc, signaling = input$sig.pathway,
-                                            width = 8, height = 2.5, font.size = 10)
+          next
         }
-      })
-      plot.grid(items, ncol, titles = grps)
+        cc <- compute.centrality(sub)
+
+        if (input$sig.plot == "scatter") {
+          add(netAnalysis_signalingRole_scatter(cc) + ggtitle(g), g)
+        } else if (input$sig.plot == "heatmap") {
+          pw.use <- if (is.null(sig.pw)) NULL else intersect(sig.pw, cc@netP$pathways)
+          if (!is.null(sig.pw) && length(pw.use) == 0) {
+            add(placeholder.ht(g, "selected pathways absent"), g)
+          } else {
+            add(netAnalysis_signalingRole_heatmap(
+                  cc, signaling = pw.use, pattern = input$sig.pattern,
+                  width = panel.w.cm * 0.5, height = panel.h.cm * 0.65, title = g), g)
+          }
+        } else {  # score: one panel per selected pathway
+          for (pw in sig.pw) local({
+            pw. <- pw; cc. <- cc; g. <- g
+            title <- paste0(g., " — ", pw.)
+            if (!pw. %in% cc.@netP$pathways) {
+              add(placeholder.gg(g., paste0(pw., " absent")), title)
+            } else {
+              add(function() {
+                netAnalysis_signalingRole_network(
+                  cc., signaling = pw.,
+                  width = panel.w.cm * 0.6, height = panel.h.cm * 0.35, font.size = 10)
+              }, title)
+            }
+          })
+        }
+      }
+      plot.grid(items, ncol, titles = titles)
     }
 
     make.render.and.download(output, session, "sig.plot", "sig.download",
@@ -514,13 +576,28 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       req(input$pat.k, input$pat.group)
       g <- input$pat.group
       k <- input$pat.k
-      ncol <- input$pat.cols %||% 2
+      ncol <- input$pat.cols %||% 1
 
-      cc <- compute.centrality(res$cellchat.list[[g]]); req(cc)
-      cc.out <- identifyCommunicationPatterns(cc, pattern = "outgoing", k = k,
-                                              width = 5, height = 9)
-      cc.in  <- identifyCommunicationPatterns(cc, pattern = "incoming", k = k,
-                                              width = 5, height = 9)
+      sub <- subset.for.idents(res$cellchat.list[[g]], input$pat.idents)
+      if (is.character(sub)) return(plot.grid(list(placeholder.gg(g, sub)), 1))
+      cc <- compute.centrality(sub); req(cc)
+
+      n.types <- length(levels(cc@idents))
+      if (k >= n.types) {
+        return(plot.grid(list(placeholder.gg(g,
+          paste0("k (", k, ") must be < number of cell types (", n.types, ")"))), 1))
+      }
+
+      cc.out <- tryCatch(identifyCommunicationPatterns(cc, pattern = "outgoing", k = k,
+                                                       width = 5, height = 9),
+                         error = function(e) NULL)
+      cc.in  <- tryCatch(identifyCommunicationPatterns(cc, pattern = "incoming", k = k,
+                                                       width = 5, height = 9),
+                         error = function(e) NULL)
+      if (is.null(cc.out) || is.null(cc.in)) {
+        return(plot.grid(list(placeholder.gg(g,
+          "pattern identification failed for this subset")), 1))
+      }
 
       label <- c(outgoing = paste0(g, " — outgoing"),
                  incoming = paste0(g, " — incoming"))
