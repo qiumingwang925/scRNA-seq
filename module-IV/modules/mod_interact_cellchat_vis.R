@@ -476,8 +476,15 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       # recompute, which errors on some objects.
       if (setequal(s$use, present)) return(cc)
       if (length(s$use) < 2) return("select ≥ 2 cell types")
-      tryCatch(subsetCellChat(cc, idents.use = s$use),
-               error = function(e) paste("subset failed:", conditionMessage(e)))
+      tryCatch({
+        sub <- subsetCellChat(cc, idents.use = s$use)
+        # subsetCellChat recomputes @netP$centr from the L-R-level prob, leaving it
+        # indexed by L-R pair instead of pathway. The signaling-role plots expect
+        # pathway-indexed centrality and otherwise crash ("'from' must be a finite
+        # number"). Recompute it from the pathway-level netP$prob.
+        sub@netP$centr <- netAnalysis_computeCentrality(net = sub@netP$prob)
+        sub
+      }, error = function(e) paste("subset failed:", conditionMessage(e)))
     }
 
     sig.thunk <- function() {
