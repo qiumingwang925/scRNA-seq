@@ -431,9 +431,6 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
                        color.heatmap = "Reds", title.name = g)
           if (s$active) args$sources.use <- s$use
           if (t$active) args$targets.use <- t$use
-          # netVisual_heatmap keeps every cell type as a row/col even after source/
-          # target filtering (fills the rest with zeros); drop those empty rows/cols.
-          if (s$active || t$active) args$remove.isolate <- TRUE
           return(do.call(netVisual_heatmap, args))
         }
 
