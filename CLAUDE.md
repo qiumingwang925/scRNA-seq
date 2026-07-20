@@ -187,5 +187,7 @@ The platform progresses from individual-sample processing through integrated mul
 
 ## Branching Workflow
 
-Non-Docker features (analysis modules, shared code, docs) are implemented on a feature branch or `main` first — never directly on `feature/docker-demo`. The `feature/docker-demo` branch is then synced by merging `main` into it. This keeps Docker-only files (`docker/`, `docker-compose.yml`, `.dockerignore`, etc.) isolated to the docker branch, so merging `main` into it stays conflict-free.
+`main` is the single production branch — application code, Docker files (`docker/`, `docker-compose.yml`, `.dockerignore`), and docs all live there together. Work lands on `main` directly or via a short-lived feature branch off it.
+
+The platform supports two install paths, both documented in `docs/`: Docker (`docs/docker.md`, the recommended path) and native R (`docs/native.md`, the fallback when a step needs more memory than the container has). A change that affects setup or dependencies needs both guides checked.
 

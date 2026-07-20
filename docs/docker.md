@@ -66,6 +66,10 @@ host first:
 
 ## Troubleshooting
 
+- **Module IV's LIANA analysis runs out of memory** — a known limitation of the
+  containerized build. Run that step natively instead; see the
+  [native setup guide](native.md). Everything else in the platform, Module IV's
+  CellChat analysis included, runs in Docker.
 - **An app dies mid-computation** — almost always memory. Raise `mem_limit` in
   `docker-compose.yml` and Docker Desktop's memory allocation, then re-run.
 - **Check what's running** — `docker logs scnexus-demo` shows each module's

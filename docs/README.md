@@ -48,9 +48,13 @@ Every walkthrough uses the datasets in the repository's `test-data/` folder:
 
 ## Launching the platform
 
-The platform runs as a single Docker image — see the [setup guide](docker.md)
-for build, run, and sample-data instructions. Once it's up, each module opens in
-a browser (Module I at <http://localhost:3839>, and so on).
+The platform runs as a single Docker image — see the [Docker setup
+guide](docker.md) for build, run, and sample-data instructions. Once it's up,
+each module opens in a browser (Module I at <http://localhost:3839>, and so on).
+
+It can also be run natively with a local R installation — see the [native setup
+guide](native.md). This is the fallback when a step needs more memory than the
+container has; notably, Module IV's LIANA analysis may fail under Docker.
 
 ## About the screenshots
 
