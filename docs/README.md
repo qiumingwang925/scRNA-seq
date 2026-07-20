@@ -36,15 +36,26 @@ each module's guide lists what it expects as input.
 | [Module III](module-III.md) | scNexus-Explore | Upload → UMAP → Violin → Dot → Heatmap → DE → Enrichment |
 | [Module IV](module-IV.md) | scNexus-Interact | Upload → CellChat → LIANA |
 
-## Sample data
+## Data preparation
 
-Every walkthrough uses the datasets in the repository's `test-data/` folder:
+The demo datasets are not in this repository — download them before starting:
 
-- `test-data/21401X3/` — Cell Ranger MEX output (`barcodes.tsv.gz`,
-  `features.tsv.gz`, `matrix.mtx.gz`). Starting point for **Module I**.
-- `test-data/Manual_Annotated_21401X3.rds` — a pre-processed, annotated Seurat
-  object. A shortcut entry point for **Modules II–IV** if you don't want to run
-  Module I first.
+**[Download the demo datasets](https://drive.google.com/drive/folders/1ufBv0MfgJGrSATmonozJeY0CLJekHYnb)**
+
+Put every file in the **`datasets/`** folder at the root of the repository. That
+folder is where the platform reads and writes data; under Docker it is the only
+host folder the apps can see.
+
+| File | Used by |
+|------|---------|
+| `Demo_Module_I_21401X3.rds` | **Module I** — load with *Option 2 — Processed Seurat object (.rds)* on the Import tab |
+| `Demo_Module_II_21401X3_control.rds` | **Module II** — one of three samples to merge and integrate |
+| `Demo_Module_II_22713X2_disease.rds` | **Module II** |
+| `Demo_Module_II_24143X4_control.rds` | **Module II** |
+
+**Modules III and IV have no separate demo file** — both take the annotated
+object that Module II produces. Run Module II first and save its output to
+`datasets/`, then load that object in Module III or IV.
 
 ## Launching the platform
 
@@ -60,5 +71,5 @@ under Docker.
 ## About the screenshots
 
 Screenshots live in `docs/img/<module>/` and are named by step
-(e.g. `01-import.png`). They are captured against the bundled `test-data/`, so
-anything you see here is reproducible with the sample data.
+(e.g. `01-import.png`). They are captured against the demo datasets, so anything
+you see here is reproducible with them.

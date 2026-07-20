@@ -7,7 +7,7 @@ Seurat object, one pipeline step per tab.
 
 | | |
 |---|---|
-| **Input** | Cell Ranger MEX folder — `test-data/21401X3/` |
+| **Input** | `datasets/Demo_Module_I_21401X3.rds` (demo), or a Cell Ranger MEX folder |
 | **Output** | Processed Seurat `.rds`, downloadable at every step |
 | **Next module** | [Module II](module-II.md) (integrate several of these objects) |
 
@@ -22,20 +22,20 @@ Seurat object, one pipeline step per tab.
 Load a sample into a Seurat object and compute per-cell QC metrics. There are
 two ways to load — you only need one.
 
-**Option 1 — Cell Ranger MEX folder**
+**Option 2 — Processed Seurat object** (the demo path)
+
+1. Open the **Import** tab.
+2. Under *Option 2*, upload `datasets/Demo_Module_I_21401X3.rds`. Any missing QC
+   metrics are filled in on load.
+
+**Option 1 — Cell Ranger MEX folder** (starting from raw data)
 
 1. Open the **Import** tab.
 2. Under *Option 1*, click **Select** and browse to a Cell Ranger MEX folder —
-   the one containing `barcodes.tsv.gz`, `features.tsv.gz`, `matrix.mtx.gz`
-   (the bundled sample is `test-data/21401X3/`).
+   the one containing `barcodes.tsv.gz`, `features.tsv.gz`, `matrix.mtx.gz`.
 3. Optionally adjust the sample ID and the cell/feature thresholds.
 4. Click **Convert**. The app builds the Seurat object and computes
    mitochondrial, ribosomal, and hemoglobin percentages automatically.
-
-**Option 2 — Processed Seurat object**
-
-Under *Option 2*, upload an already-processed `.rds` object instead; any missing
-QC metrics are filled in on load.
 
 > 📷 **Screenshot:** _Import tab showing the two load options_ — `img/module-I/01-import.png`
 

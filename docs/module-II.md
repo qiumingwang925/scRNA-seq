@@ -11,9 +11,9 @@ and annotate the integrated object.
 | **Output** | Annotated, integrated Seurat `.rds` |
 | **Next module** | [Module III](module-III.md) / [Module IV](module-IV.md) |
 
-> For a quick demo without running Module I on several samples, you can upload
-> `test-data/Manual_Annotated_21401X3.rds` to populate the tabs — though
-> integration is only meaningful with more than one sample.
+> For the demo, upload all three `datasets/Demo_Module_II_*.rds` files —
+> `21401X3_control`, `22713X2_disease`, and `24143X4_control`. Integration is
+> only meaningful with more than one sample.
 
 ---
 

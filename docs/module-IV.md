@@ -21,7 +21,8 @@ Infer cell-cell communication with two parallel engines — **CellChat** and
 Load the object and choose the grouping used for communication.
 
 1. Open the **Upload** tab.
-2. Load an annotated `.rds` (e.g. `test-data/Manual_Annotated_21401X3.rds`).
+2. Load an annotated `.rds` — the object [Module II](module-II.md) produced,
+   saved into `datasets/`.
 3. Pick the metadata column to use as the grouping (`group`) — usually cell
    type. The app runs `JoinLayers` and validates the data slot on load.
 

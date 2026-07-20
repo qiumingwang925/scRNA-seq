@@ -21,7 +21,8 @@ available in any order.
 Load the object and confirm it is in the expected shape.
 
 1. Open the **Upload** tab.
-2. Load an annotated `.rds` (e.g. `test-data/Manual_Annotated_21401X3.rds`).
+2. Load an annotated `.rds` — the object [Module II](module-II.md) produced,
+   saved into `datasets/`.
 3. Check the structure summary — cell counts, metadata columns, and assays.
 
 > 📷 **Screenshot:** _Upload tab with object summary_ — `img/module-III/01-upload.png`
