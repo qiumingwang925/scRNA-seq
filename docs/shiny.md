@@ -1,4 +1,4 @@
-# Setup — Running the Shiny App from RStudio
+# Setup — Running the Shiny App from RStudio or a Headless Server
 
 Docker is the recommended way to run the platform ([setup guide](docker.md)) —
 it needs no R installation and no package builds. Run the Shiny apps directly
@@ -59,13 +59,26 @@ R -e 'shiny::runApp("module-IV",  port = 3842)'
 Launch by folder name rather than sourcing `app.R` directly — `shiny::runApp()`
 sets the working directory the module's internal paths depend on.
 
+These bind to `127.0.0.1`, reachable only from the machine running them. To
+reach an app on a **remote headless server**, bind to all interfaces:
+
+```bash
+R -e 'shiny::runApp("module-I", host = "0.0.0.0", port = 3839)'
+```
+
+The apps have no authentication, so only do this on a trusted network. The safer
+alternative is to leave the default binding and forward the port over SSH:
+
+```bash
+ssh -L 3839:localhost:3839 user@server
+```
+
 ## There is no landing page
 
 The Docker setup serves a landing page at <http://localhost:3838> that links to
-all four modules. **That page does not exist when running from RStudio.** Open the
-URL the app itself prints on startup — RStudio assigns a port automatically, and
-the command-line form above uses whichever port you pass it. Do not browse to
-3838.
+all four modules. **That page does not exist outside Docker.** Open the URL the
+app itself prints on startup — RStudio assigns a port automatically, and the
+command-line form above uses whichever port you pass it. Do not browse to 3838.
 
 ## Sample data
 
