@@ -34,10 +34,10 @@ Then open the module you want in a browser:
 | URL | App |
 |-----|-----|
 | <http://localhost:3838> | Landing page (links to all four) |
-| <http://localhost:3839> | Module I — Individual-sample analysis |
-| <http://localhost:3840> | Module II — Multi-sample integration |
-| <http://localhost:3841> | Module III — Post-annotation exploration |
-| <http://localhost:3842> | Module IV — Cell-cell communication |
+| <http://localhost:3839> | Module I — scNexus-Process |
+| <http://localhost:3840> | Module II — scNexus-Integrate |
+| <http://localhost:3841> | Module III — scNexus-Explore |
+| <http://localhost:3842> | Module IV — scNexus-Interact |
 
 Each module runs as its own process; if one crashes the others keep serving
 (check `docker logs scnexus-demo`).

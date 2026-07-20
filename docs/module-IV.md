@@ -1,4 +1,4 @@
-# Module IV — Cell-Cell Communication
+# Module IV — scNexus-Interact
 
 Infer cell-cell communication with two parallel engines — **CellChat** and
 **LIANA** — over a single shared upload. Run either or both.

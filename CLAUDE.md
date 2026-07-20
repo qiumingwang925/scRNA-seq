@@ -1,4 +1,4 @@
-# scRNA-seq Analysis Platform
+# scNexus — scRNA-seq Analysis Platform
 
 Interactive Shiny-based platform for single-cell RNA sequencing analysis, covering individual-sample processing (Module I), multi-sample integration (Module II), post-annotation exploration (Module III), and cell-cell communication (Module IV).
 

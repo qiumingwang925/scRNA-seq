@@ -1,4 +1,4 @@
-# scRNA-seq Analysis Platform — User Guide
+# scNexus — User Guide
 
 A step-by-step walkthrough of the **happy path** through the platform: the
 straight-line route from a raw Cell Ranger matrix to cell-cell communication
@@ -29,12 +29,12 @@ each module's guide lists what it expects as input.
 
 ## Module guides
 
-| Guide | Module | Pipeline |
-|-------|--------|----------|
-| [Module I](module-I.md) | Individual-sample analysis | Import → QC → PCA → Doublet → Cell Cycle → Annotation |
-| [Module II](module-II.md) | Multi-sample integration | Upload & Merge → Integration → Benchmarking → Annotation |
-| [Module III](module-III.md) | Post-annotation exploration | Upload → UMAP → Violin → Dot → Heatmap → DE → Enrichment |
-| [Module IV](module-IV.md) | Cell-cell communication | Upload → CellChat → LIANA |
+| Guide | App | Pipeline |
+|-------|-----|----------|
+| [Module I](module-I.md) | scNexus-Process | Import → QC → PCA → Doublet → Cell Cycle → Annotation |
+| [Module II](module-II.md) | scNexus-Integrate | Upload & Merge → Integration → Benchmarking → Annotation |
+| [Module III](module-III.md) | scNexus-Explore | Upload → UMAP → Violin → Dot → Heatmap → DE → Enrichment |
+| [Module IV](module-IV.md) | scNexus-Interact | Upload → CellChat → LIANA |
 
 ## Sample data
 

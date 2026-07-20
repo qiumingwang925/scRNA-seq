@@ -76,7 +76,7 @@ ui <- fluidPage(
     }
   "))),
 
-  titlePanel("scRNA-seq Analysis Platform"),
+  titlePanel("scNexus-Process"),
 
   tabsetPanel(id = "main_tabs",
     

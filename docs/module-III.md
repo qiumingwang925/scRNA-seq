@@ -1,4 +1,4 @@
-# Module III — Post-Annotation Exploration
+# Module III — scNexus-Explore
 
 Explore and visualize an annotated object. Unlike the earlier modules this is
 not a linear pipeline — once data is uploaded, all visualization tabs are

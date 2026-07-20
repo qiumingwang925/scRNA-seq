@@ -1,4 +1,4 @@
-# Module I — Individual-Sample Analysis
+# Module I — scNexus-Process
 
 Process a single scRNA-seq sample from a raw Cell Ranger matrix to an annotated
 Seurat object, one pipeline step per tab.

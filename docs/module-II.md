@@ -1,4 +1,4 @@
-# Module II — Multi-Sample Integration
+# Module II — scNexus-Integrate
 
 Merge several processed samples, correct batch effects, benchmark the result,
 and annotate the integrated object.
