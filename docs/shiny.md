@@ -1,9 +1,10 @@
-# Setup — Running the Platform Natively
+# Setup — Running the Shiny App from RStudio
 
 Docker is the recommended way to run the platform ([setup guide](docker.md)) —
-it needs no R installation and no package builds. Run natively when you need a
-module to use your machine's full memory: **Module IV's LIANA analysis can run
-out of memory inside the container** and complete natively on the same machine.
+it needs no R installation and no package builds. Run the Shiny apps directly
+from RStudio when you need a module to use your machine's full memory:
+**Module IV's LIANA analysis can run out of memory inside the container** and
+complete from RStudio on the same machine.
 
 ## Prerequisites
 
@@ -61,16 +62,16 @@ sets the working directory the module's internal paths depend on.
 ## There is no landing page
 
 The Docker setup serves a landing page at <http://localhost:3838> that links to
-all four modules. **That page does not exist when running natively.** Open the
+all four modules. **That page does not exist when running from RStudio.** Open the
 URL the app itself prints on startup — RStudio assigns a port automatically, and
 the command-line form above uses whichever port you pass it. Do not browse to
 3838.
 
 ## Sample data
 
-Native runs read `test-data/` from the repository directly, so no extraction
-step is needed. Module I's file browser is unrestricted here, unlike in the
-container.
+Running from RStudio reads `test-data/` from the repository directly, so no
+extraction step is needed. Module I's file browser is unrestricted here, unlike
+in the container.
 
 ## Next steps
 

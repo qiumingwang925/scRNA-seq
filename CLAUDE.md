@@ -189,5 +189,5 @@ The platform progresses from individual-sample processing through integrated mul
 
 `main` is the single production branch — application code, Docker files (`docker/`, `docker-compose.yml`, `.dockerignore`), and docs all live there together. Work lands on `main` directly or via a short-lived feature branch off it.
 
-The platform supports two install paths, both documented in `docs/`: Docker (`docs/docker.md`, the recommended path) and native R (`docs/native.md`, the fallback when a step needs more memory than the container has). A change that affects setup or dependencies needs both guides checked.
+The platform supports two install paths, both documented in `docs/`: Docker (`docs/docker.md`, the recommended path) and running the Shiny apps from RStudio (`docs/shiny.md`, the fallback when a step needs more memory than the container has). A change that affects setup or dependencies needs both guides checked.
 
