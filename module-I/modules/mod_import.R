@@ -48,15 +48,13 @@ mod.import.server <- function(id) {
     ns <- session$ns
 
     # Setup shinyFiles. In the Docker demo, SCNEXUS_DATA_ROOT points at the
-    # bind-mounted datasets folder; restricting the browser to it plus the
-    # bundled sample data keeps users out of the rest of the container
-    # filesystem. Unset outside Docker, so local use keeps the project dir +
-    # system volumes.
+    # bind-mounted datasets folder; restricting the browser to it keeps users
+    # out of the rest of the container filesystem. Unset outside Docker, so
+    # local use keeps the project dir + system volumes.
     data.root <- Sys.getenv("SCNEXUS_DATA_ROOT", unset = "")
     if (nzchar(data.root)) {
-      volumes <- c("Sample data" = file.path(dirname(getwd()), "test-data"),
-                   "Datasets" = data.root)
-      default.root <- "Sample data"
+      volumes <- c("Datasets" = data.root)
+      default.root <- "Datasets"
     } else {
       volumes <- c("Project" = dirname(getwd()), shinyFiles::getVolumes()())
       default.root <- "Project"

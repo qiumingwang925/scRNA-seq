@@ -82,9 +82,10 @@ command-line form above uses whichever port you pass it. Do not browse to 3838.
 
 ## Sample data
 
-Running from RStudio reads `test-data/` from the repository directly, so no
-extraction step is needed. Module I's file browser is unrestricted here, unlike
-in the container.
+Download the demo datasets into `datasets/` — see [data
+preparation](README.md#data-preparation). Module I's file browser is
+unrestricted here, unlike in the container, so it can reach any path on the
+machine.
 
 ## Next steps
 

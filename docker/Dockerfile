@@ -45,15 +45,15 @@ RUN --mount=type=cache,target=/rlib,sharing=locked \
 
 RUN useradd --create-home --shell /bin/bash appuser
 
-# App code, mirroring the on-disk repo layout: R/ and test-data/ are siblings of
-# the module dirs so each app's source("../R/utils.R") and module-I's shinyFiles
-# "Project" root (dirname(getwd()) == /srv/app) resolve unchanged.
+# App code, mirroring the on-disk repo layout: R/ is a sibling of the module dirs
+# so each app's source("../R/utils.R") and module-I's shinyFiles "Project" root
+# (dirname(getwd()) == /srv/app) resolve unchanged. No data is baked in — it
+# arrives through the datasets/ bind mount.
 COPY R          /srv/app/R
 COPY module-I   /srv/app/module-I
 COPY module-II  /srv/app/module-II
 COPY module-III /srv/app/module-III
 COPY module-IV  /srv/app/module-IV
-COPY test-data  /srv/app/test-data
 COPY docker/index.html /srv/app/index.html
 COPY docker/start.sh   /usr/local/bin/start.sh
 

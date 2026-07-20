@@ -40,17 +40,15 @@ If one app crashes it is visible in `docker logs` and the others keep serving.
 
 ## Sample data
 
-The dataset in `test-data/` is bundled into the image.
+No data is bundled into the image. The host's `datasets/` folder is bind-mounted
+to `/srv/app/datasets` and is the only data source.
 
-- **Module I** uses a server-side file browser — open `test-data` directly from
-  the app's "Project" root.
-- **Modules II–IV** upload from your computer. Copy the bundled data to the host
-  first:
+- **Module I** uses a server-side file browser restricted to that mount.
+- **Modules II–IV** upload from your computer — point them at the same
+  `datasets/` folder on the host.
 
-  ```bash
-  ./extract-test-data.sh            # -> ~/Downloads/scNexus-test-data
-  ./extract-test-data.sh /some/dir  # custom destination
-  ```
+See [data preparation](../docs/README.md#data-preparation) for the demo dataset
+download.
 
 ## Memory
 

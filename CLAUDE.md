@@ -19,7 +19,7 @@ Interactive Shiny-based platform for single-cell RNA sequencing analysis, coveri
 - `module-IV/` — Shiny app for cell-cell communication analysis (CellChat + LIANA)
   - `modules/` — Shiny module files (upload, CellChat/LIANA compute + vis, shared vis helpers)
   - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
-- `test-data/` — Sample datasets (Cell Ranger MEX format and pre-processed Seurat .rds objects)
+- `datasets/` — The platform's only data source; users download demo datasets here (gitignored, bind-mounted into the container)
 - `manuscript_R/` — Standalone R scripts for manuscript figures and analysis (not part of the Shiny app)
 
 ## Module I: Individual-Sample Analysis

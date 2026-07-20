@@ -1,9 +1,10 @@
-# Keep the build context small. NOTE: test-data/ is intentionally NOT ignored —
-# it is bundled into the image even though it is gitignored.
+# Keep the build context small. No data is bundled into the image — it arrives
+# at runtime through the datasets/ bind mount.
 .git
 .claude
 manuscript_R
 datasets
+test-data
 **/.Rproj.user
 **/.Rhistory
 **/.RData
