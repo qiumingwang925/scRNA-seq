@@ -19,7 +19,7 @@ mod.cellcycle.ui <- function(id) {
              )
            ),
            wellPanel(
-             mod.save.config.ui(ns("save"), label = "Download Seurat Object")
+             downloadButton(ns("download"), "Download Seurat Object", style = "width:100%")
            )
   )
 }
@@ -70,11 +70,15 @@ mod.cellcycle.server <- function(id, seurat.obj.doublet, upstream.completed = re
         s.genes <- stringr::str_to_title(cc.genes.updated.2019$s.genes)
         g2m.genes <- stringr::str_to_title(cc.genes.updated.2019$g2m.genes)
 
-        # Run Seurat scoring
+        # set.ident = FALSE: scoring should add Phase/S.Score/G2M.Score without
+        # taking over the active identity. Setting it stashes the previous
+        # idents as old.ident and leaves Idents() as the phase, which would
+        # make downstream defaults (FindMarkers, unlabelled DimPlot) split by
+        # cell cycle rather than by cluster.
         srt <- CellCycleScoring(srt,
                                 s.features = s.genes,
                                 g2m.features = g2m.genes,
-                                set.ident = TRUE)
+                                set.ident = FALSE)
       })
       completed(TRUE)
       return(srt)
@@ -109,8 +113,15 @@ mod.cellcycle.server <- function(id, seurat.obj.doublet, upstream.completed = re
       p.combined
     }, res = 96)
     
-    # 3. Export with save configuration
-    mod.save.config.server("save", data.cell.cycle)
+    # 3. Export the full object
+    output$download <- downloadHandler(
+      filename = function() paste0("seurat_cellcycle_", Sys.Date(), ".rds"),
+      content = function(file) {
+        withProgress(message = "Preparing export...", value = 0.5, {
+          saveRDS(data.cell.cycle(), file)
+        })
+      }
+    )
 
     return(list(seurat.obj = data.cell.cycle, completed = completed))
   })
