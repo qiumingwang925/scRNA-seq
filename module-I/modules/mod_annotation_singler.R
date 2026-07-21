@@ -16,16 +16,11 @@ mod.annotation.singler.ui <- function(id) {
       )
     ),
     fluidRow(
-      column(8,
-        wellPanel(
-          strong("UMAP by Annotation"),
-          plotOutput(ns("plot.annotation"), height = "500px", width = "100%")
-        )
-      ),
-      column(4,
+      column(12,
         wellPanel(
           strong("Annotation Summary"),
-          verbatimTextOutput(ns("annotation.summary"))
+          verbatimTextOutput(ns("annotation.summary")),
+          helpText("To view the predicted cell types on a UMAP, open the Manual Annotation tab and colour by the SingleR annotation column.")
         )
       )
     ),
@@ -99,13 +94,6 @@ mod.annotation.singler.server <- function(id, current.obj, upstream.completed = 
       completed(TRUE)
       showNotification("SingleR annotation complete!", type = "message")
     }, ignoreInit = TRUE)
-
-    # UMAP colored by SingleR labels
-    output$plot.annotation <- renderPlot({
-      req(current.obj(), annotation.col())
-      DimPlot(current.obj(), group.by = annotation.col(), reduction = "umap", label = TRUE) +
-        theme(aspect.ratio = 1)
-    }, res = 96)
 
     # Annotation summary
     output$annotation.summary <- renderPrint({
