@@ -44,8 +44,8 @@ A modular Shiny web application implementing a linear analysis pipeline for indi
 - Each module is a Shiny module (namespaced UI + server pair)
 - Data flows as Seurat objects through reactive returns between modules
 - All tabs are available at all times; each step's main compute action warns (with a proceed-anyway modal and a button hint) when its upstream step's `completed` signal is not yet set, rather than hard-blocking navigation
-- Input: 10X Genomics Cell Ranger MEX format
-- Output: Seurat .rds files downloadable at each step (via shared `mod_save_config`)
+- Input: 10X Genomics Cell Ranger MEX format, or an already-processed Seurat .rds
+- Output: Seurat .rds from the Cell Cycle tab (full object) and from both Annotation tabs (via shared `mod_save_config`). The Import, QC, PCA, and Doublet tabs have no export of their own
 
 ## Module II: Multi-Sample Integration
 
