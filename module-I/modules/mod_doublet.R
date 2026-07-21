@@ -81,14 +81,10 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, upstream.completed 
       seurat.obj.pca()
     }, {
       req(seurat.obj.pca())
-      srt <- seurat.obj.pca()
-      n.cells <- ncol(srt)
-      
-      rate.mult <- if(input$dbl.assay == "Standard v3.1") 0.8 else 0.4
-      calc.percent <- (n.cells / 1000) * rate.mult
-      final.percent <- min(max(calc.percent, 0.5), 15)
-      
-      updateNumericInput(session, "dbl.percent", value = round(final.percent, 2))
+
+      doublet.rate.percent <- if (input$dbl.assay == "Standard v3.1") 8 else 4
+
+      updateNumericInput(session, "dbl.percent", value = doublet.rate.percent)
     })
     
     # --- 2. Prep Data (UMAP) ---
