@@ -60,12 +60,16 @@ Quantify how well the integration worked.
 1. Open the **Benchmarking** tab.
 2. Select **Batch Label** (batch information assigned in **Step 1**).
 3. Select **Cell-Type Label** (manual or SingleR annotation).
-4. Compute the integration-quality metrics (**ASW**, **LISI**, **GraphLISI**).
-- ASW:
-  - basw
-  - casw
-- LISI:
-- GraphLISI:
+4. Compute the integration-quality metrics (**ASW**, **LISI**, **GraphLISI**) for both *batch mixing* and *cell-type separation*.
+- ASW
+  - basw (batch): Worst = 1 or -1; Best = 0
+  - casw (cell-type): Worst = -1; Best = 1
+- LISI
+  - ilisi score (batch mixing): worst = 1; best = number of batches
+  - clisi score (cell-type separation): worst = number of cell types ; best = 1
+- GraphLISI
+  - gilisi score (batch mixing): worst = 1; best = number of batches
+  - gclisi score (cell-type separation): worst = number of cell types ; best = 1
 6. Read the ranked comparison to confirm your method choice
 
 
