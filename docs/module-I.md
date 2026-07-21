@@ -145,7 +145,7 @@ Assign cell-type labels via SingleR (automatic) and/or manual annotation.
 - **Upload Reference SCE (.rds)**: upload a SingleCellExperiment object saved as rds file as a reference.
 - **Label Name**: the name (e.g. SingleR_Reference) will be saved in Seurat Object metadata. 
 - Click **Run SingleR** to perform automated cell type annotation. Once finished, an **Annotation Summary** will be generated. The predicted cell type annotations can be visualizated under **Manual Annotation**.
-7 **Export Annotated Object**: 
+7. **Export Annotated Object**: 
 — **Full object**: raw counts, normalized/tranaformed data, scaled data, metadata, graphs, PCA embedding, UMAP embeddding
 — **Module II Analysis-Ready Object**: raw counts and metadata
 — **Customized Object**: selection based on needs
