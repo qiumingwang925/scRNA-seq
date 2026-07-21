@@ -62,8 +62,8 @@ Quantify how well the integration worked.
 3. Select **Cell-Type Label** (manual or SingleR annotation).
 4. Compute the integration-quality metrics (**ASW**, **LISI**, **GraphLISI**).
 - ASW:
-  -basw
-  -casw
+  - basw
+  - casw
 - LISI:
 - GraphLISI:
 6. Read the ranked comparison to confirm your method choice
