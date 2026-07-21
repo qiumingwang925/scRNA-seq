@@ -76,7 +76,7 @@ ui <- fluidPage(
     }
   "))),
 
-  titlePanel("scNexus-Process"),
+  titlePanel("Module I - scNexus-Process"),
 
   tabsetPanel(id = "main_tabs",
     

@@ -7,16 +7,16 @@ mod.annotation.ui <- function(id) {
   tabPanel("Annotation", value = "tab.annotation",
     wellPanel(
       fluidRow(
-        column(4, strong("Upload Seurat Object(.rds)")),
+        column(4, strong("Upload Processed Seurat Object(.rds)")),
         column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
       )
     ),
     tabsetPanel(id = ns("annotation.tabs"),
-      tabPanel("SingleR Annotation",
-        mod.annotation.singler.ui(ns("singler"))
-      ),
       tabPanel("Manual Annotation",
         mod.annotation.manual.ui(ns("manual"))
+      ),
+      tabPanel("SingleR Annotation",
+        mod.annotation.singler.ui(ns("singler"))
       )
     )
   )

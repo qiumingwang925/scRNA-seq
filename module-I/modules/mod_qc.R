@@ -3,7 +3,7 @@
 
 mod.qc.ui <- function(id) {
   ns <- NS(id)
-  tabPanel("QC Removal", value = "tab.qc",
+  tabPanel("QC Filtering", value = "tab.qc",
            wellPanel(
              strong("Plot Settings"),
              fluidRow(
@@ -120,7 +120,7 @@ mod.qc.server <- function(id, seurat.obj, upstream.completed = reactive(TRUE)) {
     output$qc.selected.count <- renderText({
       req(data.qc())
       n.selected <- sum(data.qc()@meta.data$QC == "Selected")
-      paste0("(", n.selected, " samples selected)")
+      paste0("(", n.selected, " cells selected)")
     })
 
     # 3. Plot rendering
