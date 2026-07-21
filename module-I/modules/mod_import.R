@@ -6,31 +6,39 @@ mod.import.ui <- function(id) {
   
   tabPanel(
     "Import raw data", value = "tab.import",
-    helpText("Load a sample using either option below — you only need one."),
-    wellPanel(
-      strong("Option 1 — Cell Ranger MEX folder"),
-      fluidRow(
-        column(4, "Select a Cell Ranger MEX analysis result folder, then Convert"),
-        column(1, shinyDirButton(ns("folder"), "Select", title = "Select a sample folder", multiple = FALSE, class = "btn-success", style = "width: 100px;"))
-      ),
-      fluidRow(
-        column(4, verbatimTextOutput(ns("mex"), placeholder = FALSE))
-      ),
-      fluidRow(
-        column(2, textInput(ns("project.name"), "Create a Sample ID", value = "")),
-        column(2, numericInput(ns("min.cells"), "Cell Threshold", value = 3)),
-        column(2, numericInput(ns("min.features"), "Feature Threshold", value = 100))
-      ),
-      fluidRow(
-        column(2, actionButton(ns("convert"), "Convert", class = "btn-success", style = "width: 100px;"))
+    radioButtons(ns("import.mode"), "Load a sample using:", inline = TRUE,
+      choices = c(
+        "Option 1 — Cell Ranger MEX folder" = "mex",
+        "Option 2 — Processed Seurat object (.rds)" = "rds"
       )
     ),
-    div(style = "text-align: center; font-weight: bold; margin: 6px 0;", "— OR —"),
-    wellPanel(
-      strong("Option 2 — Processed Seurat object (.rds)"),
-      fluidRow(
-        column(4, "Upload an already-processed Seurat object"),
-        column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
+    conditionalPanel(
+      condition = "input['import.mode'] == 'mex'", ns = ns,
+      wellPanel(
+        fluidRow(
+          column(4, "Select a Cell Ranger MEX analysis result folder, then Convert"),
+          column(1, shinyDirButton(ns("folder"), "Select", title = "Select a sample folder", multiple = FALSE, class = "btn-success", style = "width: 100px;"))
+        ),
+        fluidRow(
+          column(4, verbatimTextOutput(ns("mex"), placeholder = FALSE))
+        ),
+        fluidRow(
+          column(2, textInput(ns("project.name"), "Create a Sample ID", value = "")),
+          column(2, numericInput(ns("min.cells"), "Cell Threshold", value = 3)),
+          column(2, numericInput(ns("min.features"), "Feature Threshold", value = 100))
+        ),
+        fluidRow(
+          column(2, actionButton(ns("convert"), "Convert", class = "btn-success", style = "width: 100px;"))
+        )
+      )
+    ),
+    conditionalPanel(
+      condition = "input['import.mode'] == 'rds'", ns = ns,
+      wellPanel(
+        fluidRow(
+          column(4, "Upload an already-processed Seurat object"),
+          column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
+        )
       )
     ),
     wellPanel(
