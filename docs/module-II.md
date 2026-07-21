@@ -19,13 +19,13 @@ and annotate the integrated object.
 
 ## Step 1 — Upload & Merge
 
-Load the per-sample objects, label them, and combine into one.
+Load the per-sample objects, label them, and merge into one.
 
 1. Open the **Upload & Merge** tab.
-2. Upload two or more Seurat `.rds` objects (Module I outputs), adding each one.
-3. In the metadata table, assign each sample its identifiers — e.g. sample ID
-   and condition/group — so batches and biology can be told apart later.
-4. Click the merge action to combine them into a single object.
+2. Click **Browse...**. to select two or more Seurat objects `.rds` files (Module I outputs) and upload them together.
+3. In the **Metadata Assignemen** table, assign each sample its batch and group.
+4. Click the **Merge Objects** to combine them into a single object.
+5. Once merged, a summary will be showed under **Merge Status**
 
 > 📷 **Screenshot:** _Upload & Merge tab with samples listed and metadata assigned_ — `img/module-II/01-upload-merge.png`
 
@@ -36,20 +36,20 @@ integrate.
 
 ## Step 2 — Integration
 
-Normalize and remove batch effects between samples.
+Normalize and transform data. Apply one or more integration methods to remove batch effects between samples.
 
 1. Open the **Integration** tab.
-2. Choose a normalization method — **LogNorm** (default) or SCTransform. The
+2. Choose a normalization method — **Log Normalization** (default) or **SCTransform**. The
    available *Regress Factors* update to match the method.
-3. Choose a batch-integration method: **CCA**, **RPCA**, **Harmony**, or
-   **FastMNN**.
-4. Run integration, then inspect the UMAP colored by sample — well-integrated
-   data has samples overlapping rather than forming separate islands.
+   Note: For Log Normalization, *Regress Factor* **nCount_RNA** is recommended.
+4. Choose a batch-integration method: **CCA**, **RPCA**, **Harmony**, or
+   **FastMNN** (only available for Log Normalization).
+5. Click **Run Pipeline** to run the integration workflows.
+6. **Pipeline Status Log** summrizes the normalization and reductions of process integration methods.
 
 > 📷 **Screenshot:** _Integration tab with method selected and integrated UMAP_ — `img/module-II/02-integration.png`
 
-**Result:** an integrated embedding where shared cell types from different
-samples mix together.
+**Result:** multiple integrated PCA and UMAP embeddings added to the Seurat object.
 
 ---
 
@@ -58,9 +58,16 @@ samples mix together.
 Quantify how well the integration worked.
 
 1. Open the **Benchmarking** tab.
-2. Compute the integration-quality metrics (**ASW**, **LISI**).
-3. Read the ranked comparison to confirm your method choice — if a different
-   method scores better, go back to Step 2 and re-run with it.
+2. Select **Batch Label** (batch information assigned in **Step 1**).
+3. Select **Cell-Type Label** (manual or SingleR annotation).
+4. Compute the integration-quality metrics (**ASW**, **LISI**, **GraphLISI**).
+- ASW:
+  -basw
+  -casw
+- LISI:
+- GraphLISI:
+6. Read the ranked comparison to confirm your method choice
+
 
 > 📷 **Screenshot:** _Benchmarking tab with ranked metric comparison_ — `img/module-II/03-benchmark.png`
 
