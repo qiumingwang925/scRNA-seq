@@ -141,7 +141,7 @@ Assign cell-type labels via SingleR (automatic) and/or manual annotation.
 - **Expression**: to visualize gene expression in UMAP, the gene name can be selected from **Upload Biomarker CSV** file **Or Type Gene Name** directly.
 - **Differential Expression**: Click **Run DE Analysis** to identfy top genes/markers for the current selected cells vs the rest. View results under sub-tab DE AnAlysis
 - **Manual Annotation**: **Enter New Labels** to mark the current selected cells. Then click **Apply Label to Selection** to save the labels in `manual_annotation` of metadate.
-6.**SingleR Annotation**
+6. **SingleR Annotation**
 - **Upload Reference SCE (.rds)**: upload a SingleCellExperiment object saved as rds file as a reference.
 - **Label Name**: the name (e.g. SingleR_Reference) will be saved in Seurat Object metadata. 
 - Click **Run SingleR** to perform automated cell type annotation. Once finished, an **Annotation Summary** will be generated. The predicted cell type annotations can be visualizated under **Manual Annotation**.
