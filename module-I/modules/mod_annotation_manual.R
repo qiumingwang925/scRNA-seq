@@ -116,6 +116,14 @@ mod.annotation.manual.server <- function(id, current.obj, upstream.completed = r
       }
     })
 
+    # Which metadata column the dropdown should show. Normally mirrors the
+    # user's own choice, but steps like clustering can point it elsewhere.
+    # The dropdown observer below re-runs whenever the object changes, so it
+    # has to read the intended selection from here rather than from
+    # input$view.meta, which still holds the pre-change value at that point.
+    view.meta.selection <- reactiveVal(NULL)
+    observeEvent(input$view.meta, { view.meta.selection(input$view.meta) })
+
     # --- Update metadata dropdown based on active object ---
     observe({
       obj <- if (input$display.mode == "subset") subset.obj() else current.obj()
@@ -130,7 +138,7 @@ mod.annotation.manual.server <- function(id, current.obj, upstream.completed = r
       other <- setdiff(meta.cols, priority)
       ordered.choices <- c(intersect(priority, meta.cols), other)
 
-      current.sel <- input$view.meta
+      current.sel <- view.meta.selection()
       selected <- if (!is.null(current.sel) && current.sel %in% ordered.choices) {
         current.sel
       } else {
@@ -218,6 +226,7 @@ mod.annotation.manual.server <- function(id, current.obj, upstream.completed = r
           obj@meta.data <- obj@meta.data[, !extra.cols, drop = FALSE]
 
           if (is.full) current.obj(obj) else subset.obj(obj)
+          view.meta.selection("seurat_clusters")
           showNotification("Clustering complete!", type = "message")
         })
       }, error = function(e) {
