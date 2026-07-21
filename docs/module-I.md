@@ -41,7 +41,7 @@ two ways to load — you only need one.
 
 > 📷 **Screenshot:** _Import tab showing the two load options_ — `img/module-I/01-import.png`
 
-**Result:** a summary of the loaded/converted Seurat object (total cell counts) and its QC metric (nFearure_RNA, nCount_RNA, percent.mt, percent.rp, and percent.hb) ready for the next step.
+**Result:** a summary of the loaded or converted Seurat object is displayed, including the total number of cells and the QC metrics saved in the object's 'meta.data': 'nFearure_RNA', 'nCount_RNA', 'percent.mt', 'percent.rp', and 'percent.hb'. The object is then ready for the next step.
 
 ---
 
@@ -61,7 +61,6 @@ Remove low-quality cells with adjustable thresholds and a live pass/fail preview
 > 📷 **Screenshot:** _QC tab showing threshold sliders and pass/fail scatter_ — `img/module-I/02-qc.png`
 
 **Result:** the Seurat object is subset to cells passed QC; the retained cell number is updated in **QC Plot**.
-are reported.
 
 ---
 
@@ -70,27 +69,36 @@ are reported.
 Normalize the data and run PCA.
 
 1. Open the **PCA** tab.
-2. Choose a normalization method — **LogNormalize** (default) or SCTransform.
-3. Run PCA and inspect the elbow, loading, and heatmap plots to judge how many
-   principal components to carry forward.
-
+2. Choose a normalization/tranformation method:
+— **Log Normalization** (default): Normalizes gene expression counts by dividing each cell's counts by its total counts, multiplying by a scale factor (10,000 by default), and applying a log(x + 1) transformation.
+- **SCTransform**: Normalizes gene expression counts using a regularized negative binomial regression model that corrects for sequencing depth and stabilizes variance. The resulting Pearson residuals are used as normalized expression values.
+3. **Run PCA** and inspect the elbow, loading, and heatmap plots by clicking **Plot** and **Update Plot** to determine the number of principal components (PCs) to retain for downstream analyses.
+- **Elbow Plot**: Shows the variance explained by each PC. Select the number of PCs near the "elbow", where additional PCs contribute only small increases in explained variance.
+- **Loading Plot**: Displays the genes that contribute most strongly to each PC. Check whether the top genes represent meaningful biological signals (e.g., identification biomarkers) rather than technical artifacts (e.g., mitochondrial, ribosomal, or cell-cycle genes, if not expected).
+- **Heatmap Plot**: Visualizes the expression patterns of the top genes across cells for each PC. Retain PCs that separate biologically distinct cell populations and show interpretable gene expression patterns.
+**Tips**:For most datasets, retaining approximately 20–30 PCs provides a reasonable starting point. The optimal number should be guided by the elbow plot and the biological relevance of the loading and heatmap plots.
 > 📷 **Screenshot:** _PCA tab with elbow plot after running PCA_ — `img/module-I/03-pca.png`
 
-**Result:** a dimensionally-reduced object with PCA embeddings.
+**Result:** Seurat Object adds a dimensionally-reduced PCA embeddings.
 
 ---
 
 ## Step 4 — Doublet Removal
 
-Detect and remove likely doublets with DoubletFinder.
+Detect and remove likely doublets with **DoubletFinder**.
 
-1. Open the **Doublet** tab.
-2. Run doublet detection.
-3. Review the UMAP with singlets/doublets highlighted, then apply removal.
+1. Open the **Doublet Removal** tab.
+2. Select **Assay Settings** used to generate your dataset. This setting determines the default expected doublet rate used by DoubletFinder when estimating the expected number of doublets.
+- 10x Genomics **High Throughput v3.1**: Default expected doublet rate = **4%**
+- 10x Genomics **Standard v3.1**: Default expected doublet rate = **8%**
+Note: These values are recommended starting points based on the assay chemistry. If the expected doublet rate for your experiment is known (e.g., from the number of recovered cells or the sequencing provider's recommendations), you can manually adjust the value.
+3. **Calculate Default parameters** including pK (Optimal) and pN(Default).
+4. **Run doublet detection**
+5. Review the UMAP and scatter plot (nCounts_RNA vs nFeature_RNA) with singlets/doublets highlighted, then apply **Removal Doublets**.
 
 > 📷 **Screenshot:** _Doublet tab UMAP colored by singlet/doublet_ — `img/module-I/04-doublet.png`
 
-**Result:** predicted doublets removed from the object.
+**Result:** Predicted doublets removed from the Seurat object.
 
 ---
 
@@ -100,10 +108,11 @@ Score each cell for cell-cycle phase (mouse gene sets).
 
 1. Open the **Cell Cycle** tab.
 2. Click **Run Cell Cycle** and view the S and G2M phase scores on the UMAP.
+3. Optionally, **Download Seurat Object** at this stage, as cell annotation may require additional time or multiple rounds of refinement.
 
 > 📷 **Screenshot:** _Cell Cycle tab UMAP colored by S and G2M phase scores_ — `img/module-I/05-cellcycle.png`
 
-**Result:** `S.Score`, `G2M.Score`, and `Phase` added to the object.
+**Result:** `S.Score`, `G2M.Score`, and `Phase` added to the meta.date of Seurat object.
 
 ---
 
@@ -112,7 +121,23 @@ Score each cell for cell-cycle phase (mouse gene sets).
 Assign cell-type labels via SingleR (automatic) and/or manual annotation.
 
 1. Open the **Annotation** tab.
-2. Run SingleR auto-annotation, then refine with the manual annotation controls
+2. Optionally, **Upload Seurat Object** if the dataset wasn't processed from beginning of the workflow.
+3. The **Plotly** toolbar on the upper-right coner of the UMAP provides interactive tools for exploring and selecting cells:
+- Download a plot as png: save the current plot as a PNG image.
+- Zoom: zoom into a selected region of the plot.
+- Pan: move the plot while maintaining the current zoom level.
+- Box Select: select cells within a rectangular region.
+- Lasso Select: select cells by drawing a freehand boundary.
+- Zoom out: decrease the magnification of the plot.
+- Zoom in: increase the magnification of the plot.
+- Autoscale: automatically adjust the axes to fit the displayed data.
+- Reset axes: restore the original plot view.
+- Show closest data on hover: display information for the data point nearest the cursor.
+- Compare data on hover: display information for all nearby data points at the cursor location.
+5. **Manual Annotation**
+- **Metadata**: use Color by Metadata to visualize variables in metadata; adjust **Cluster Resolution" and "Run Clustering" on all or seleted cells.
+- 
+5. Run SingleR auto-annotation, then refine with the manual annotation controls
    as needed.
 
 > 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/06-annotation.png`
