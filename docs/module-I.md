@@ -69,8 +69,8 @@ Remove low-quality cells with adjustable thresholds and a live pass/fail preview
 Normalize the data and run PCA.
 
 1. Open the **PCA** tab.
-2. Choose a normalization/tranformation method:
-— **Log Normalization** (default): Normalizes gene expression counts by dividing each cell's counts by its total counts, multiplying by a scale factor (10,000 by default), and applying a log(x + 1) transformation.
+2. Choose a normalization/tranformation method
+- **Log Normalization** (default): Normalizes gene expression counts by dividing each cell's counts by its total counts, multiplying by a scale factor (10,000 by default), and applying a log(x + 1) transformation.
 - **SCTransform**: Normalizes gene expression counts using a regularized negative binomial regression model that corrects for sequencing depth and stabilizes variance. The resulting Pearson residuals are used as normalized expression values.
 3. **Run PCA** and inspect the elbow, loading, and heatmap plots by clicking **Plot** and **Update Plot** to determine the number of principal components (PCs) to retain for downstream analyses.
 - **Elbow Plot**: Shows the variance explained by each PC. Select the number of PCs near the "elbow", where additional PCs contribute only small increases in explained variance.
@@ -123,32 +123,32 @@ Assign cell-type labels via SingleR (automatic) and/or manual annotation.
 1. Open the **Annotation** tab.
 2. Optionally, **Upload Seurat Object** if the dataset wasn't processed from beginning of the workflow.
 3. The **Plotly** toolbar on the upper-right coner of the UMAP provides interactive tools for exploring and selecting cells:
-- Download a plot as png: save the current plot as a PNG image.
-- Zoom: zoom into a selected region of the plot.
-- Pan: move the plot while maintaining the current zoom level.
-- Box Select: select cells within a rectangular region.
-- Lasso Select: select cells by drawing a freehand boundary.
-- Zoom out: decrease the magnification of the plot.
-- Zoom in: increase the magnification of the plot.
-- Autoscale: automatically adjust the axes to fit the displayed data.
-- Reset axes: restore the original plot view.
-- Show closest data on hover: display information for the data point nearest the cursor.
-- Compare data on hover: display information for all nearby data points at the cursor location.
+- **Download a plot as png**: save the current plot as a PNG image.
+- **Zoom**: zoom into a selected region of the plot.
+- **Pan**: move the plot while maintaining the current zoom level.
+- **Box Select**: select cells within a rectangular region.
+- **Lasso Select**: select cells by drawing a freehand boundary.
+- **Zoom out**: decrease the magnification of the plot.
+- **Zoom in**: increase the magnification of the plot.
+- **Autoscale**: automatically adjust the axes to fit the displayed data.
+- **Reset axes**: restore the original plot view.
+- **Show closest data on hover**: display information for the data point nearest the cursor.
+- **Compare data on hover**: display information for all nearby data points at the cursor location.
 5. **Manual Annotation**
-- **Metadata**: use Color by Metadata to visualize variables in metadata; adjust **Cluster Resolution" and "Run Clustering" on all or seleted cells.
-- 
-5. Run SingleR auto-annotation, then refine with the manual annotation controls
-   as needed.
-
+- **Display UMAP from** shows the all cells and selected cells (after subset and re-clusring).
+- **PCs for Subset UMAP** defines the number of PCs used to **Run UMAP on Selection** and re-cluering.
+- **Metadata**: use **Color by Metadata** to visualize variables in metadata, adjust **Cluster Resolution** and "**Run Clustering** on all or seleted cells.
+- **Expression**: to visualize gene expression in UMAP, the gene name can be selected from **Upload Biomarker CSV** file **Or Type Gene Name** directly.
+- **Differential Expression**: Click **Run DE Analysis** to identfy top genes/markers for the current selected cells vs the rest. View results under sub-tab DE AnAlysis
+- **Manual Annotation**: **Enter New Labels** to mark the current selected cells. Then click **Apply Label to Selection** to save the labels in `manual_annotation` of metadate.
+6.**SingleR Annotation**
+- **Upload Reference SCE (.rds)**: upload a SingleCellExperiment object saved as rds file as a reference.
+- **Label Name**: the name (e.g. SingleR_Reference) will be saved in Seurat Object metadata. 
+- Click **Run SingleR** to perform automated cell type annotation. Once finished, an **Annotation Summary** will be generated. The predicted cell type annotations can be visualizated under **Manual Annotation**.
+7 **Export Annotated Object**: 
+— **Full object**: raw counts, normalized/tranaformed data, scaled data, metadata, graphs, PCA embedding, UMAP embeddding
+— **Module II Analysis-Ready Object**: raw counts and metadata
+— **Customized Object**: selection based on needs
 > 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/06-annotation.png`
 
-**Result:** cell-type labels in the object metadata.
-
----
-
-## Saving your object
-
-Each step exposes a **Save** panel to download the current Seurat object as
-`.rds`. Save after annotation to produce the input for [Module II](module-II.md).
-
-> 📷 **Screenshot:** _Save panel with export options_ — `img/module-I/07-save.png`
+**Result:** `manual_annotation`and/or SingleR annotation labels add in the Seurat object metadata. Multiple versions of Seurat object can be downloaded as `.rds`.
