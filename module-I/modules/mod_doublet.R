@@ -166,7 +166,16 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, upstream.completed 
     data.dbl.final <- eventReactive(input$dbl.remove.run, {
       req(data.dbl())
       completed(TRUE)
-      subset(data.dbl(), doublet.class == "Singlet")
+      srt <- subset(data.dbl(), doublet.class == "Singlet")
+
+      # Every surviving cell is a singlet, so the classification is constant
+      # from here on; DoubletFinder's own run-parameterised columns are
+      # superseded by doublet.score, which is kept because it still varies.
+      # Dropped here rather than in data.dbl() so this tab's own plots keep
+      # working when the user navigates back.
+      run.cols <- grep("^(pANN|DF\\.classifications)", colnames(srt@meta.data), value = TRUE)
+      for (col in c("doublet.class", run.cols)) srt[[col]] <- NULL
+      srt
     })
     
     output$dbl.cell.count <- renderText({

@@ -181,7 +181,12 @@ mod.qc.server <- function(id, seurat.obj, upstream.completed = reactive(TRUE)) {
 
     data.qc.filter <- eventReactive(input$qc.filter.run, {
       req(data.qc())
-      subset(data.qc(), subset = QC == 'Selected')
+      srt <- subset(data.qc(), subset = QC == 'Selected')
+      # Every surviving cell is "Selected", so the column carries nothing
+      # downstream. Dropped here rather than in data.qc() so this tab's own
+      # plots keep their pass/fail split when the user navigates back.
+      srt$QC <- NULL
+      srt
     })
     
     return(list(seurat.obj = data.qc.filter, completed = completed))
