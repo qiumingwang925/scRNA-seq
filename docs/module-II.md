@@ -70,13 +70,13 @@ Quantify how well the integration worked.
 - GraphLISI
   - gilisi score (batch mixing): worst = 1; best = number of batches
   - gclisi score (cell-type separation): worst = number of cell types ; best = 1
-6. Read the ranked comparison to confirm your method choice
+5.  Utilize **Rank Summary** and **Score Distribution** to compare method performance. *Median Score Summry* displays scores rounded to three decimal places, whereas *Rank Summary* calculates rankings using the full-precision scores.
 
 
 > 📷 **Screenshot:** _Benchmarking tab with ranked metric comparison_ — `img/module-II/03-benchmark.png`
 
-**Result:** a ranked table of integration quality backing your choice of method.
-
+**Result:** *Rank Summary* and *Score Distribution* summarize the integration performance of each method to support method selection. Use these results together with the UMAP Visual Inspection in the next step to make the final decision.
+ 
 ---
 
 ## Step 4 — Annotation
@@ -84,10 +84,9 @@ Quantify how well the integration worked.
 Cluster and label the integrated object.
 
 1. Open the **Annotation** tab.
-2. Explore the integrated UMAP; subset and cluster as needed.
-3. Run differential expression to find cluster markers.
-4. Assign cell-type labels using the manual annotation controls.
-5. Save the annotated object as `.rds`.
+2. Explore the unintegrated or integrated UMAP using **Select Integration**.
+3. Same as **Module I Annotation** tab
+4. Save the annotated object as `.rds`.
 
 > 📷 **Screenshot:** _Annotation tab with labeled clusters_ — `img/module-II/04-annotation.png`
 
