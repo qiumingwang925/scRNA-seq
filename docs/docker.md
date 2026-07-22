@@ -12,9 +12,42 @@ Once it's running, follow the [workflow guides](README.md) to use each module.
 - **Memory:** single-cell objects and CellChat/LIANA are memory-hungry. Give
   Docker at least **16 GB** (Docker Desktop → Settings → Resources → Memory).
 
+## Pull the prebuilt image (ARM64 only, for now)
+
+If you are on **Apple Silicon (M-series) or another ARM64 machine**, skip the
+build entirely and pull the published image:
+
+```bash
+docker pull jixianli/scnexus:v0.1.0-arm64
+```
+
+> **Architecture:** this tag is **ARM64 only**. On an Intel/AMD (x86-64)
+> machine it will not run — build from source instead, see [Build](#build)
+> below. A multi-architecture `latest` will be published once an x86-64 build
+> is available; until then the arch is named in the tag so you cannot pull the
+> wrong one by accident.
+
+Run it with the same ports and data mount the compose file uses, from the
+**repository root** (so `datasets/` resolves):
+
+```bash
+docker run --rm \
+  --name scnexus-demo \
+  -p 3838-3842:3838-3842 \
+  -v "$(pwd)/datasets:/srv/app/datasets" \
+  -e SCNEXUS_DATA_ROOT=/srv/app/datasets \
+  --memory 16g \
+  jixianli/scnexus:v0.1.0-arm64
+```
+
+Then open the URLs in [Run](#run) below. To use the prebuilt image with
+`docker compose` instead, comment out the `build:` block in
+`docker-compose.yml` and set `image: jixianli/scnexus:v0.1.0-arm64`.
+
 ## Build
 
-From the **repository root**:
+Needed on **Intel/AMD (x86-64)** machines, and any time you want to run your
+own changes. From the **repository root**:
 
 ```bash
 docker compose build
@@ -71,5 +104,13 @@ Nothing is version-pinned yet. The build records every resolved package version
 and GitHub commit SHA inside the image:
 
 ```bash
+# locally built image
 docker run --rm scnexus-demo:latest cat /srv/BUILD_VERSIONS.txt
+
+# published image
+docker run --rm jixianli/scnexus:v0.1.0-arm64 cat /srv/BUILD_VERSIONS.txt
 ```
+
+Because nothing is pinned, two builds made at different times can resolve
+different package versions — this file is the record of what a given image
+actually contains.
