@@ -1,5 +1,23 @@
 ## ABOUTME: Reusable Shiny sub-module for configurable Seurat object export.
-## ABOUTME: Offers presets (full, analysis-ready, CSV) and custom component selection via DietSeurat.
+## ABOUTME: Object-driven component picker (assays/layers/reductions/graphs); metadata is always kept.
+
+# ── Export presets ───────────────────────────────────────────────────────────
+# A preset pre-checks a subset of components so repeated or testing exports are
+# lighter and faster to write. Each entry is a name -> function(obj) that
+# returns which components to check; any name not present in the object is
+# ignored, so a preset is safe to reuse across objects of different shapes.
+# Metadata is always kept and is not part of the spec. "Full object"
+# (everything checked) is always offered and needs no entry here.
+#
+# To define one, uncomment and edit — it then appears as a preset button:
+#
+# EXPORT.PRESETS[["Counts only (fast)"]] <- function(obj) list(
+#   assays     = "RNA",              # assays to keep
+#   layers     = "counts",           # layers to keep, applied across kept assays
+#   reductions = character(0),       # e.g. Reductions(obj) to keep all
+#   graphs     = character(0)
+# )
+EXPORT.PRESETS <- list()
 
 mod.save.config.ui <- function(id, label = "Export Object") {
   ns <- NS(id)
@@ -10,32 +28,36 @@ mod.save.config.server <- function(id, current.obj) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # Open modal with export options
+    # Layers actually present across all assays, in canonical order.
+    available.layers <- function(obj) {
+      present <- unique(unlist(lapply(Assays(obj), function(a) Layers(obj[[a]]))))
+      intersect(c("counts", "data", "scale.data"), present)
+    }
+
+    # Only render a checkbox group when the object actually has that component.
+    optional.group <- function(input.id, label, choices) {
+      if (length(choices) == 0) return(NULL)
+      checkboxGroupInput(ns(input.id), label, choices = choices, selected = choices)
+    }
+
     observeEvent(input$open, {
       req(current.obj())
-
-      obj.size <- format(object.size(current.obj()), units = "auto")
+      obj <- current.obj()
 
       showModal(modalDialog(
         title = "Export Configuration",
         size = "m",
-
-        p(strong("Current object size: "), obj.size),
-
-        radioButtons(ns("preset"), "Export preset:",
-          choices = c(
-            "Full object" = "full",
-            "Analysis-ready (recommended)" = "analysis",
-            "Custom" = "custom",
-            "Annotations only (CSV)" = "csv"
-          ),
-          selected = "analysis"
-        ),
-
-        textOutput(ns("preset.description")),
-        br(),
-        uiOutput(ns("advanced.ui")),
-
+        p(strong("Current object size: "), format(object.size(obj), units = "auto")),
+        radioButtons(ns("preset"), "Preset:",
+                     choices = c("Full object", names(EXPORT.PRESETS)),
+                     selected = "Full object"),
+        hr(),
+        optional.group("keep.assays", "Assays:", Assays(obj)),
+        optional.group("keep.layers", "Layers (applied across kept assays):",
+                       available.layers(obj)),
+        optional.group("keep.reductions", "Reductions:", Reductions(obj)),
+        optional.group("keep.graphs", "Graphs:", Graphs(obj)),
+        helpText("Metadata is always included."),
         footer = tagList(
           downloadButton(ns("download"), "Download"),
           modalButton("Cancel")
@@ -43,101 +65,65 @@ mod.save.config.server <- function(id, current.obj) {
       ))
     })
 
-    # Preset descriptions
-    output$preset.description <- renderText({
-      req(input$preset)
-      switch(input$preset,
-        "full" = "Keeps everything. Largest file size.",
-        "analysis" = "Drops scaled data and neighbor graphs. Keeps counts, normalized data, PCA, UMAP, and all metadata.",
-        "custom" = "Choose which components to include.",
-        "csv" = "Exports metadata and UMAP coordinates as a CSV file. Smallest output."
-      )
-    })
-
-    # Advanced checkboxes (only shown for Custom preset)
-    output$advanced.ui <- renderUI({
-      if (is.null(input$preset) || input$preset != "custom") return(NULL)
-
+    # Applying a preset just re-checks the boxes; the user can still adjust after.
+    observeEvent(input$preset, {
+      req(current.obj())
       obj <- current.obj()
-      has.sct <- "SCT" %in% names(obj@assays)
 
-      choices <- c(
-        "Raw counts" = "counts",
-        "Normalized data" = "data",
-        "Scaled data" = "scale.data",
-        "PCA embeddings" = "pca",
-        "UMAP embeddings" = "umap",
-        "Neighbor graphs" = "graphs"
-      )
-      if (has.sct) choices <- c(choices, c("SCT assay" = "sct"))
-
-      wellPanel(
-        checkboxGroupInput(ns("keep"), "Components to keep:",
-          choices = choices,
-          selected = c("counts", "data", "pca", "umap")
-        ),
-        helpText("Metadata (annotations, clusters) is always included.")
-      )
-    })
-
-    # Strip a Seurat object based on selected components
-    strip.object <- function(obj, keep) {
-      keep.layers <- intersect(keep, c("counts", "data", "scale.data"))
-      dimreducs <- c()
-      if ("pca" %in% keep) dimreducs <- c(dimreducs, "pca")
-      if ("umap" %in% keep) dimreducs <- c(dimreducs, "umap")
-      if (length(dimreducs) == 0) dimreducs <- NULL
-
-      graphs.keep <- if ("graphs" %in% keep) names(obj@graphs) else NULL
-
-      assays <- DefaultAssay(obj)
-      if ("sct" %in% keep && "SCT" %in% names(obj@assays)) {
-        assays <- unique(c(assays, "SCT"))
+      spec <- if (input$preset == "Full object") {
+        list(assays = Assays(obj), layers = available.layers(obj),
+             reductions = Reductions(obj), graphs = Graphs(obj))
+      } else {
+        EXPORT.PRESETS[[input$preset]](obj)
+      }
+      pick <- function(key, available) {
+        wanted <- spec[[key]]
+        if (is.null(wanted)) wanted <- character(0)
+        intersect(wanted, available)
       }
 
+      updateCheckboxGroupInput(session, "keep.assays",     selected = pick("assays", Assays(obj)))
+      updateCheckboxGroupInput(session, "keep.layers",     selected = pick("layers", available.layers(obj)))
+      updateCheckboxGroupInput(session, "keep.reductions", selected = pick("reductions", Reductions(obj)))
+      updateCheckboxGroupInput(session, "keep.graphs",     selected = pick("graphs", Graphs(obj)))
+    }, ignoreInit = TRUE)
+
+    strip.object <- function(obj) {
+      assays.keep <- input$keep.assays
+      layers.keep <- input$keep.layers
+      if (length(assays.keep) == 0) stop("Select at least one assay to export.")
+      if (length(layers.keep) == 0) stop("Select at least one layer to export.")
+
+      # DietSeurat requires the active assay to survive; repoint it if the user
+      # unchecked it, otherwise the call errors.
+      if (!DefaultAssay(obj) %in% assays.keep) DefaultAssay(obj) <- assays.keep[1]
+
+      dimreducs <- if (length(input$keep.reductions)) input$keep.reductions else NULL
+      graphs    <- if (length(input$keep.graphs)) input$keep.graphs else NULL
+
       if (packageVersion("Seurat") >= "5.0.0") {
-        DietSeurat(obj, layers = keep.layers, dimreducs = dimreducs,
-                   graphs = graphs.keep, assays = assays)
+        DietSeurat(obj, layers = layers.keep, assays = assays.keep,
+                   dimreducs = dimreducs, graphs = graphs)
       } else {
         DietSeurat(obj,
-                   counts = "counts" %in% keep.layers,
-                   data = "data" %in% keep.layers,
-                   scale.data = "scale.data" %in% keep.layers,
-                   dimreducs = dimreducs,
-                   graphs = graphs.keep,
-                   assays = assays)
+                   counts = "counts" %in% layers.keep,
+                   data = "data" %in% layers.keep,
+                   scale.data = "scale.data" %in% layers.keep,
+                   assays = assays.keep, dimreducs = dimreducs, graphs = graphs)
       }
     }
 
-    # Download handler — stripping only runs on actual download
     output$download <- downloadHandler(
-      filename = function() {
-        if (input$preset == "csv") {
-          paste0("annotations_", Sys.Date(), ".csv")
-        } else {
-          paste0("seurat_", input$preset, "_", Sys.Date(), ".rds")
-        }
-      },
+      filename = function() paste0("seurat_export_", Sys.Date(), ".rds"),
       content = function(file) {
+        stripped <- tryCatch(strip.object(current.obj()),
+                             error = function(e) {
+                               showNotification(conditionMessage(e), type = "error")
+                               NULL
+                             })
+        req(stripped)
         withProgress(message = "Preparing export...", value = 0.5, {
-          obj <- current.obj()
-
-          if (input$preset == "csv") {
-            umap.coords <- as.data.frame(Embeddings(obj, "umap"))
-            meta <- obj@meta.data
-            export.df <- cbind(barcode = rownames(meta), meta, umap.coords)
-            write.csv(export.df, file, row.names = FALSE)
-          } else if (input$preset == "full") {
-            saveRDS(obj, file)
-          } else {
-            keep <- if (input$preset == "analysis") {
-              c("counts", "data", "pca", "umap")
-            } else {
-              input$keep
-            }
-            stripped <- strip.object(obj, keep)
-            saveRDS(stripped, file)
-          }
+          saveRDS(stripped, file)
         })
         removeModal()
       }
