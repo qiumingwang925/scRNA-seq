@@ -11,34 +11,34 @@ available in any order.
 | **Input** | Annotated Seurat `.rds` (Module II output). For testing, use `Demo_Module_III_control_vs_disease.rds`  |
 | **Output** | Figures and tables (downloadable per tab) |
 
-> Every visualization tab downloads its figure. The Enrichment tab consumes the
+> Every visualization tab downloads its figure with adjustable width and height. The Enrichment tab consumes the
 > DE tab's result, so run **Differential Expression** before **Enrichment**.
 
 ---
 
-## Step 1 — Upload
+## Step 1 — Upload Data
 
 Load the object and confirm it is in the expected shape.
 
-1. Open the **Upload** tab.
+1. Open the **Upload Data** tab.
 2. Load an annotated `.rds` — the object [Module II](module-II.md) produced,
    saved into `datasets/`.
 3. Check the structure summary — cell counts, metadata columns, and assays.
 
 > 📷 **Screenshot:** _Upload tab with object summary_ — `img/module-III/01-upload.png`
 
-**Result:** the object is validated and shared with every visualization tab.
+**Result:** the seurat object is validated and shared with every visualization tab.
 
 ---
 
-## Step 2 — UMAP Cell-Type
+## Step 2 — UMAP
 
 Color the UMAP by cell type and inspect gene expression.
 
-1. Open the **UMAP Cell-Type** tab.
-2. Color by the cell-type metadata column.
-3. Optionally enter one or more genes to view (co-)expression, or lasso-select a
-   region to re-run UMAP on just that subset.
+1. Open the **UMAP** tab
+2. In **Interactive Selection**, all cells or selected cells (box or lasso selection) with the newly generated UMAP coordinates will be used in **Highlight View** and **Gene Expression** subtabs.
+3. In **Highlighted View**, cell type(s) selected are colored and rest of them are in light grey. The UMAP can be splited by `None`, `orig.ident`(sample ID), `batch`, and `group`. The **Grid Columns** can be adjusted for multi-panel figure genaration.
+4. **Gene Expression** contains indivisual gene **Expression** and **Co-expression** of two genes. Both of them can be splited by `None`, `orig.ident`(sample ID), `batch`, and `group`. 
 
 > 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/02-umap.png`
 
