@@ -28,6 +28,11 @@ mod.save.config.server <- function(id, current.obj) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+    # Breadcrumb logging for the export path: the last line printed before a
+    # silent failure localizes the crash. Prefixed with the module namespace
+    # so the three call sites (SingleR, Manual, Module II) are distinguishable.
+    log.step <- function(...) message("[save ", session$ns(""), "] ", ...)
+
     # Assays() is qualified throughout: the apps load SummarizedExperiment
     # (via SingleCellExperiment in Module I, via batchelor in Module II) after
     # Seurat, and its Assays() masks SeuratObject's, returning an S4 assays
@@ -48,6 +53,11 @@ mod.save.config.server <- function(id, current.obj) {
     observeEvent(input$open, {
       req(current.obj())
       obj <- current.obj()
+      log.step("open dialog | size=", format(object.size(obj), units = "auto"),
+               " | assays=", paste(SeuratObject::Assays(obj), collapse = ","),
+               " | layers=", paste(available.layers(obj), collapse = ","),
+               " | reductions=", paste(Reductions(obj), collapse = ","),
+               " | graphs=", paste(Graphs(obj), collapse = ","))
 
       showModal(modalDialog(
         title = "Export Configuration",
@@ -74,6 +84,7 @@ mod.save.config.server <- function(id, current.obj) {
     observeEvent(input$preset, {
       req(current.obj())
       obj <- current.obj()
+      log.step("preset selected: ", input$preset)
 
       spec <- if (input$preset == "Full object") {
         list(assays = SeuratObject::Assays(obj), layers = available.layers(obj),
@@ -96,17 +107,25 @@ mod.save.config.server <- function(id, current.obj) {
     strip.object <- function(obj) {
       assays.keep <- input$keep.assays
       layers.keep <- input$keep.layers
+      log.step("strip: assays=", paste(assays.keep, collapse = ","),
+               " | layers=", paste(layers.keep, collapse = ","),
+               " | reductions=", paste(input$keep.reductions, collapse = ","),
+               " | graphs=", paste(input$keep.graphs, collapse = ","))
       if (length(assays.keep) == 0) stop("Select at least one assay to export.")
       if (length(layers.keep) == 0) stop("Select at least one layer to export.")
 
       # DietSeurat requires the active assay to survive; repoint it if the user
       # unchecked it, otherwise the call errors.
-      if (!DefaultAssay(obj) %in% assays.keep) DefaultAssay(obj) <- assays.keep[1]
+      if (!DefaultAssay(obj) %in% assays.keep) {
+        log.step("repointing DefaultAssay ", DefaultAssay(obj), " -> ", assays.keep[1])
+        DefaultAssay(obj) <- assays.keep[1]
+      }
 
       dimreducs <- if (length(input$keep.reductions)) input$keep.reductions else NULL
       graphs    <- if (length(input$keep.graphs)) input$keep.graphs else NULL
 
-      if (packageVersion("Seurat") >= "5.0.0") {
+      log.step("calling DietSeurat")
+      out <- if (packageVersion("Seurat") >= "5.0.0") {
         DietSeurat(obj, layers = layers.keep, assays = assays.keep,
                    dimreducs = dimreducs, graphs = graphs)
       } else {
@@ -116,21 +135,37 @@ mod.save.config.server <- function(id, current.obj) {
                    scale.data = "scale.data" %in% layers.keep,
                    assays = assays.keep, dimreducs = dimreducs, graphs = graphs)
       }
+      log.step("DietSeurat done | size=", format(object.size(out), units = "auto"))
+      out
     }
 
     output$download <- downloadHandler(
-      filename = function() paste0("seurat_export_", Sys.Date(), ".rds"),
+      filename = function() {
+        log.step("download requested")
+        paste0("seurat_export_", Sys.Date(), ".rds")
+      },
       content = function(file) {
-        stripped <- tryCatch(strip.object(current.obj()),
-                             error = function(e) {
-                               showNotification(conditionMessage(e), type = "error")
-                               NULL
-                             })
-        req(stripped)
+        log.step("content start | writing to ", file)
         withProgress(message = "Preparing export...", value = 0.5, {
-          saveRDS(stripped, file)
+          stripped <- tryCatch(strip.object(current.obj()),
+                               error = function(e) {
+                                 log.step("ERROR in strip.object: ", conditionMessage(e))
+                                 showNotification(conditionMessage(e), type = "error")
+                                 NULL
+                               })
+          req(stripped)
+          log.step("saveRDS start")
+          tryCatch(
+            saveRDS(stripped, file),
+            error = function(e) {
+              log.step("ERROR in saveRDS: ", conditionMessage(e))
+              stop(e)
+            }
+          )
+          log.step("saveRDS done")
         })
         removeModal()
+        log.step("export complete")
       }
     )
   })
