@@ -108,7 +108,11 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, upstream.completed 
       srt <- data.dbl.prep()
 
       withProgress(message = 'Calculating optimal pK...', {
-        sweep.res.list <- paramSweep(srt, PCs = 1:dims.to.use(), sct = FALSE)
+        # Mirror the upstream normalization: SCTransform leaves DefaultAssay as
+        # "SCT", and DoubletFinder must use its SCT path to match, otherwise it
+        # looks for a standard NormalizeData layer the SCT object doesn't have.
+        use.sct <- DefaultAssay(srt) == "SCT"
+        sweep.res.list <- paramSweep(srt, PCs = 1:dims.to.use(), sct = use.sct)
         sweep.stats <- summarizeSweep(sweep.res.list, GT = FALSE)
         bcmvn <- find.pK(sweep.stats)
         optimal.pK <- as.numeric(as.character(bcmvn$pK[which.max(bcmvn$BCmetric)]))
@@ -125,11 +129,12 @@ mod.doublet.server <- function(id, seurat.obj.pca, pca.dims, upstream.completed 
         # Use the latest input values
         pct <- as.numeric(input$dbl.percent)
         nExp.poi <- round((pct/100) * ncol(srt))
-        
+
+        use.sct <- DefaultAssay(srt) == "SCT"
         srt <- doubletFinder(srt, PCs = 1:dims.to.use(),
-                             pN = input$dbl.pN, 
-                             pK = input$dbl.pK, 
-                             nExp = nExp.poi, sct = FALSE)
+                             pN = input$dbl.pN,
+                             pK = input$dbl.pK,
+                             nExp = nExp.poi, sct = use.sct)
         
         df.col <- tail(grep("DF.classifications", colnames(srt@meta.data), value = TRUE), 1)
         pANN.col <- tail(grep("pANN", colnames(srt@meta.data), value = TRUE), 1)
