@@ -84,9 +84,13 @@ Quantify how well the integration worked.
 Cluster and label the integrated object.
 
 1. Open the **Annotation** tab.
-2. Explore the unintegrated or integrated UMAP using **Select Integration**.
-3. Same as **Module I Annotation** tab
-4. Save the annotated object as `.rds`.
+2. Use **Select Integration** to explore the unintegrated or integrated UMAP.
+3. Use **Color by Metadata** to visualize `orig.ident`, `batch`, `group`, or any cell-type `annotation`, and visually assess integration performance by evaluating
+- batch mixing: same cell type from different samples overlap with each other
+- cell-type separation: (sub-)cell types from different samples remain separated
+5. Explore the data using the available tools, including interactive cell selection, re-clustering, coloring metadata variables, gene expression visualization, differential expression analysis, and manual cell-type labeling (same workflow as the **Module I Annotation** tab)
+6. Save the annotated object as `.rds`
+- Full object: multiple integrated PCA
 
 > 📷 **Screenshot:** _Annotation tab with labeled clusters_ — `img/module-II/04-annotation.png`
 
