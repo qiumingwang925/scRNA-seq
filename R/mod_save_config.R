@@ -12,10 +12,11 @@
 # To define one, uncomment and edit — it then appears as a preset button:
 #
 # EXPORT.PRESETS[["Counts only (fast)"]] <- function(obj) list(
-#   assays     = "RNA",              # assays to keep
-#   layers     = "counts",           # layers to keep, applied across kept assays
-#   reductions = character(0),       # e.g. Reductions(obj) to keep all
-#   graphs     = character(0)
+#   assays       = "RNA",            # assays to keep
+#   layers       = "counts",         # layers to keep, applied across kept assays
+#   reductions   = character(0),     # e.g. Reductions(obj) to keep all
+#   graphs       = character(0),
+#   active.ident = "manual_annotation"  # optional: metadata column to set as Idents
 # )
 EXPORT.PRESETS <- list()
 
@@ -50,6 +51,16 @@ mod.save.config.server <- function(id, current.obj) {
       checkboxGroupInput(ns(input.id), label, choices = choices, selected = choices)
     }
 
+    # Metadata columns that make sense as a cell identity, intersected with what
+    # the object actually has. SingleR* is a prefix match (SingleR.main, etc.);
+    # the rest are exact. Kept in most- to least-specific order.
+    identity.candidates <- function(obj) {
+      cols <- colnames(obj@meta.data)
+      singler <- grep("^SingleR", cols, value = TRUE)
+      c(intersect("manual_annotation", cols), singler,
+        intersect(c("condition", "group", "orig.ident"), cols))
+    }
+
     observeEvent(input$open, {
       req(current.obj())
       obj <- current.obj()
@@ -75,6 +86,11 @@ mod.save.config.server <- function(id, current.obj) {
         tags$label("Metadata columns:"),
         div(style = "max-height: 180px; overflow-y: auto; border: 1px solid #ddd; padding: 6px; border-radius: 4px;",
             optional.group("keep.meta", NULL, colnames(obj@meta.data))),
+        if (length(identity.candidates(obj))) {
+          selectInput(ns("active.ident.col"), "Set active identity to:",
+                      choices = c("(leave unchanged)" = "", identity.candidates(obj)),
+                      selected = "")
+        },
         footer = tagList(
           downloadButton(ns("download"), "Download"),
           modalButton("Cancel")
@@ -106,6 +122,12 @@ mod.save.config.server <- function(id, current.obj) {
       updateCheckboxGroupInput(session, "keep.reductions", selected = pick("reductions", Reductions(obj)))
       updateCheckboxGroupInput(session, "keep.graphs",     selected = pick("graphs", Graphs(obj)))
       updateCheckboxGroupInput(session, "keep.meta",       selected = pick("metadata", colnames(obj@meta.data)))
+
+      # A preset may name an active.ident column; otherwise leave the choice be.
+      ident.wanted <- spec$active.ident
+      if (!is.null(ident.wanted) && ident.wanted %in% identity.candidates(obj)) {
+        updateSelectInput(session, "active.ident.col", selected = ident.wanted)
+      }
     }, ignoreInit = TRUE)
 
     strip.object <- function(obj) {
@@ -138,6 +160,15 @@ mod.save.config.server <- function(id, current.obj) {
                    data = "data" %in% layers.keep,
                    scale.data = "scale.data" %in% layers.keep,
                    assays = assays.keep, dimreducs = dimreducs, graphs = graphs)
+      }
+
+      # Set the active identity before dropping columns: Idents() copies the
+      # values into the @active.ident slot, which is independent of meta.data,
+      # so the identity survives even if that column is unchecked below.
+      ident.col <- input$active.ident.col
+      if (!is.null(ident.col) && nzchar(ident.col) && ident.col %in% colnames(out@meta.data)) {
+        log.step("setting active.ident from column: ", ident.col)
+        Idents(out) <- ident.col
       }
 
       # DietSeurat keeps every metadata column; drop the ones the user unchecked.
