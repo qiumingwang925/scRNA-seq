@@ -219,6 +219,13 @@ mod.annotation.manual.server <- function(id, current.obj, upstream.completed = r
 
       tryCatch({
         withProgress(message = "Running Clustering...", value = 0, {
+          # The full-object pipeline (PCA -> Doublet) never runs FindNeighbors,
+          # so a fresh object has no SNN graph for FindClusters to use. Build
+          # one here from the available PCs. FindClusters defaults graph.name
+          # to <DefaultAssay>_snn, which is exactly what FindNeighbors writes,
+          # so the two agree for both the RNA and SCT assays.
+          n.dims <- min(30, ncol(Embeddings(obj, "pca")))
+          obj <- FindNeighbors(obj, dims = 1:n.dims)
           obj <- FindClusters(obj, resolution = res)
 
           # Keep only seurat_clusters, remove intermediate resolution columns
