@@ -28,9 +28,14 @@ mod.save.config.server <- function(id, current.obj) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+    # Assays() is qualified throughout: the apps load SummarizedExperiment
+    # (via SingleCellExperiment in Module I, via batchelor in Module II) after
+    # Seurat, and its Assays() masks SeuratObject's, returning an S4 assays
+    # container instead of the character names the checkbox choices need.
+
     # Layers actually present across all assays, in canonical order.
     available.layers <- function(obj) {
-      present <- unique(unlist(lapply(Assays(obj), function(a) Layers(obj[[a]]))))
+      present <- unique(unlist(lapply(SeuratObject::Assays(obj), function(a) Layers(obj[[a]]))))
       intersect(c("counts", "data", "scale.data"), present)
     }
 
@@ -52,7 +57,7 @@ mod.save.config.server <- function(id, current.obj) {
                      choices = c("Full object", names(EXPORT.PRESETS)),
                      selected = "Full object"),
         hr(),
-        optional.group("keep.assays", "Assays:", Assays(obj)),
+        optional.group("keep.assays", "Assays:", SeuratObject::Assays(obj)),
         optional.group("keep.layers", "Layers (applied across kept assays):",
                        available.layers(obj)),
         optional.group("keep.reductions", "Reductions:", Reductions(obj)),
@@ -71,7 +76,7 @@ mod.save.config.server <- function(id, current.obj) {
       obj <- current.obj()
 
       spec <- if (input$preset == "Full object") {
-        list(assays = Assays(obj), layers = available.layers(obj),
+        list(assays = SeuratObject::Assays(obj), layers = available.layers(obj),
              reductions = Reductions(obj), graphs = Graphs(obj))
       } else {
         EXPORT.PRESETS[[input$preset]](obj)
@@ -82,7 +87,7 @@ mod.save.config.server <- function(id, current.obj) {
         intersect(wanted, available)
       }
 
-      updateCheckboxGroupInput(session, "keep.assays",     selected = pick("assays", Assays(obj)))
+      updateCheckboxGroupInput(session, "keep.assays",     selected = pick("assays", SeuratObject::Assays(obj)))
       updateCheckboxGroupInput(session, "keep.layers",     selected = pick("layers", available.layers(obj)))
       updateCheckboxGroupInput(session, "keep.reductions", selected = pick("reductions", Reductions(obj)))
       updateCheckboxGroupInput(session, "keep.graphs",     selected = pick("graphs", Graphs(obj)))
