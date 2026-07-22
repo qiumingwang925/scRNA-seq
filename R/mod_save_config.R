@@ -72,7 +72,9 @@ mod.save.config.server <- function(id, current.obj) {
                        available.layers(obj)),
         optional.group("keep.reductions", "Reductions:", Reductions(obj)),
         optional.group("keep.graphs", "Graphs:", Graphs(obj)),
-        helpText("Metadata is always included."),
+        tags$label("Metadata columns:"),
+        div(style = "max-height: 180px; overflow-y: auto; border: 1px solid #ddd; padding: 6px; border-radius: 4px;",
+            optional.group("keep.meta", NULL, colnames(obj@meta.data))),
         footer = tagList(
           downloadButton(ns("download"), "Download"),
           modalButton("Cancel")
@@ -88,7 +90,8 @@ mod.save.config.server <- function(id, current.obj) {
 
       spec <- if (input$preset == "Full object") {
         list(assays = SeuratObject::Assays(obj), layers = available.layers(obj),
-             reductions = Reductions(obj), graphs = Graphs(obj))
+             reductions = Reductions(obj), graphs = Graphs(obj),
+             metadata = colnames(obj@meta.data))
       } else {
         EXPORT.PRESETS[[input$preset]](obj)
       }
@@ -102,6 +105,7 @@ mod.save.config.server <- function(id, current.obj) {
       updateCheckboxGroupInput(session, "keep.layers",     selected = pick("layers", available.layers(obj)))
       updateCheckboxGroupInput(session, "keep.reductions", selected = pick("reductions", Reductions(obj)))
       updateCheckboxGroupInput(session, "keep.graphs",     selected = pick("graphs", Graphs(obj)))
+      updateCheckboxGroupInput(session, "keep.meta",       selected = pick("metadata", colnames(obj@meta.data)))
     }, ignoreInit = TRUE)
 
     strip.object <- function(obj) {
@@ -135,6 +139,15 @@ mod.save.config.server <- function(id, current.obj) {
                    scale.data = "scale.data" %in% layers.keep,
                    assays = assays.keep, dimreducs = dimreducs, graphs = graphs)
       }
+
+      # DietSeurat keeps every metadata column; drop the ones the user unchecked.
+      meta.keep <- intersect(input$keep.meta, colnames(out@meta.data))
+      dropped <- setdiff(colnames(out@meta.data), meta.keep)
+      if (length(dropped)) {
+        log.step("dropping metadata columns: ", paste(dropped, collapse = ","))
+        out@meta.data <- out@meta.data[, meta.keep, drop = FALSE]
+      }
+
       log.step("DietSeurat done | size=", format(object.size(out), units = "auto"))
       out
     }
