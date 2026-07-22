@@ -3,9 +3,9 @@ mod.integrate.ui <- function(id) {
   tabPanel("Integation",
            sidebarLayout(
              sidebarPanel(
-               h4("1. Normalization"),
+               h4("1. Normalization and Transformation"),
                radioButtons(ns("norm.method"), "Method:",
-                            choices = c("LogNorm" = "LogNormalize", "SCTransform" = "SCT")),
+                            choices = c("Log Normalization" = "LogNormalize", "SCTransform" = "SCT")),
 
                selectInput(ns("vars.regress"), "Regress Factors:",
                            choices = NULL, selected = NULL, multiple = TRUE),
@@ -13,7 +13,7 @@ mod.integrate.ui <- function(id) {
                h4("2. Integration"),
                checkboxGroupInput(ns("int.methods"), "Methods to Run:",
                                   choices = c("CCA", "RPCA", "Harmony", "FastMNN"),
-                                  selected = c("CCA", "Harmony")),
+                                  selected = c("RPCA", "Harmony")),
 
                actionButton(ns("run.flow"), "Run Pipeline", class = "btn-success btn-block")
              ),
@@ -128,6 +128,7 @@ mod.integrate.server <- function(id, shared.data) {
           incProgress(0.1, detail = paste("Processing", m))
           red.name <- paste0("integrated.", tolower(m))
           umap.name <- paste0("umap.", tolower(m))
+          set.seed(4321)
 
           obj <- tryCatch({
             if (input$norm.method == "SCT") {

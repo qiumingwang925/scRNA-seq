@@ -32,7 +32,7 @@ mod.benchmark.ui <- function(id) {
                selectInput(ns("celltype.label"), "Cell-Type Label:", choices = NULL),
                checkboxGroupInput(ns("eval.metrics"), "Metrics:",
                                   choices = c("ASW", "LISI", "GraphLISI"),
-                                  selected = c("ASW", "LISI")),
+                                  selected = c("ASW", "LISI", "GraphLISI")),
                hr(),
                actionButton(ns("run.eval"), "Compute Scores",
                             class = "btn-primary btn-block", style = "color: white;")
@@ -195,7 +195,15 @@ mod.benchmark.server <- function(id, shared.data) {
         # ilisi, gilisi, casw: Higher is Better. basw, clisi, gclisi: Lower is Better.
         # Orient so larger = better, then rank so the best gets the most points
         # and tied medians share the same rank (ties.method = "max").
-        oriented <- if(m %in% c("ilisi", "gilisi", "casw")) rank.df$Median else -rank.df$Median
+        # add the abs(basw)
+        oriented <- if (m == "basw") {
+          -abs(rank.df$Median)
+        } else if (m %in% c("ilisi", "gilisi", "casw")) {
+          rank.df$Median
+        } else {
+          -rank.df$Median
+        }
+        #oriented <- if(m %in% c("ilisi", "gilisi", "casw")) rank.df$Median else -rank.df$Median
         rank.df$Rank <- rank(oriented, ties.method = "max")
         rank.summary <- rbind(rank.summary, rank.df)
       }

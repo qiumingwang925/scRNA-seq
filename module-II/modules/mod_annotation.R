@@ -66,7 +66,7 @@ mod.annotation.ui <- function(id) {
                  id = ns("main.tabs"),
                  tabPanel("UMAP Visualization", 
                           br(),
-                          plotly::plotlyOutput(ns("umap.main"), height = "600px")
+                          plotly::plotlyOutput(ns("umap.main"), height = "800px")
                  ),
                  tabPanel("DE Analysis",
                           br(),
