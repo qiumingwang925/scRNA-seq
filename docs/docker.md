@@ -12,20 +12,18 @@ Once it's running, follow the [workflow guides](README.md) to use each module.
 - **Memory:** single-cell objects and CellChat/LIANA are memory-hungry. Give
   Docker at least **16 GB** (Docker Desktop → Settings → Resources → Memory).
 
-## Pull the prebuilt image (ARM64 only, for now)
+## Pull the prebuilt image (recommended)
 
-If you are on **Apple Silicon (M-series) or another ARM64 machine**, skip the
-build entirely and pull the published image:
+Skip the build entirely — the published image runs on both **x86-64
+(Intel/AMD)** and **ARM64 (Apple Silicon)**:
 
 ```bash
-docker pull jixianli/scnexus:v0.1.0-arm64
+docker pull jixianli/scnexus:latest      # or a pinned release: v0.1.0
 ```
 
-> **Architecture:** this tag is **ARM64 only**. On an Intel/AMD (x86-64)
-> machine it will not run — build from source instead, see [Build](#build)
-> below. A multi-architecture `latest` will be published once an x86-64 build
-> is available; until then the arch is named in the tag so you cannot pull the
-> wrong one by accident.
+Docker picks the right architecture for your machine automatically; there is
+nothing arch-specific to choose. Single-architecture tags
+(`v0.1.0-arm64`, `v0.1.0-amd64`) also exist if you ever need to force one.
 
 Run it with the same ports and data mount the compose file uses, from the
 **repository root** (so `datasets/` resolves):
@@ -37,24 +35,28 @@ docker run --rm \
   -v "$(pwd)/datasets:/srv/app/datasets" \
   -e SCNEXUS_DATA_ROOT=/srv/app/datasets \
   --memory 16g \
-  jixianli/scnexus:v0.1.0-arm64
+  jixianli/scnexus:latest
 ```
 
 Then open the URLs in [Run](#run) below. To use the prebuilt image with
 `docker compose` instead, comment out the `build:` block in
-`docker-compose.yml` and set `image: jixianli/scnexus:v0.1.0-arm64`.
+`docker-compose.yml` and set `image: jixianli/scnexus:latest`.
 
 ## Build
 
-Needed on **Intel/AMD (x86-64)** machines, and any time you want to run your
-own changes. From the **repository root**:
+Only needed to run your own changes — the published image already covers both
+architectures. From the **repository root**:
 
 ```bash
-docker compose build
+SOURCE_COMMIT=$(git rev-parse HEAD) docker compose build
 ```
 
 The first build is slow (~30–60 min) and the image is large (~3–5 GB) — normal
 for the Bioconductor + single-cell stack. Subsequent builds are cached.
+
+`SOURCE_COMMIT` stamps the image with the commit it came from (see [Recorded
+versions](#recorded-versions)). Plain `docker compose build` works too and
+records `unknown`.
 
 ## Run
 
@@ -100,17 +102,24 @@ so point their file pickers at the same `datasets/` folder on the host.
 
 ## Recorded versions
 
-Nothing is version-pinned yet. The build records every resolved package version
-and GitHub commit SHA inside the image:
+**Which source an image came from.** Every image is labelled with the commit it
+was built from. This reads the label without downloading or running the image,
+so it works for any architecture:
 
 ```bash
-# locally built image
-docker run --rm scnexus-demo:latest cat /srv/BUILD_VERSIONS.txt
-
-# published image
-docker run --rm jixianli/scnexus:v0.1.0-arm64 cat /srv/BUILD_VERSIONS.txt
+docker image inspect jixianli/scnexus:latest \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
-Because nothing is pinned, two builds made at different times can resolve
-different package versions — this file is the record of what a given image
-actually contains.
+`unknown` means the image was built without `SOURCE_COMMIT` set, so its source
+cannot be identified — expect that from ad-hoc local builds, not from releases.
+
+**Which package versions an image contains.** Nothing is version-pinned yet, so
+two builds made at different times can resolve different package versions. The
+build records every resolved version and GitHub SHA inside the image:
+
+```bash
+docker run --rm jixianli/scnexus:latest cat /srv/BUILD_VERSIONS.txt
+```
+
+The source commit is appended to the end of that file as well.
