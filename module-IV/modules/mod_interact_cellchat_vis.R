@@ -16,7 +16,10 @@ mod.interact.cellchat.vis.ui <- function(id) {
           fileInput(ns("vis.file"),
                     "Upload processed CellChat result (.rds) — skip if computed above:",
                     accept = ".rds"),
-          verbatimTextOutput(ns("input.summary"))
+          verbatimTextOutput(ns("input.summary")),
+          hr(),
+          h5("Cell types (applies to every tab below)"),
+          cell.type.selector.ui(ns, "subset.idents", "Cell types to include:")
         )
       )
     ),
@@ -62,15 +65,38 @@ mod.interact.cellchat.vis.ui <- function(id) {
                           "Pathway/LR — Bubble" = "bubble",
                           "Pathway — Violin" = "violin"
                         )),
-            selectInput(ns("zoom.pathway"), "Pathway:", choices = NULL),
+            conditionalPanel(
+              condition = sprintf("input['%s'] != 'bubble'", ns("zoom.plot")),
+              selectInput(ns("zoom.pathway"), "Pathway:", choices = NULL)
+            ),
+            conditionalPanel(
+              condition = sprintf("input['%s'] == 'bubble'", ns("zoom.plot")),
+              selectInput(ns("zoom.pathways"), "Pathways:", choices = NULL,
+                          multiple = TRUE)
+            ),
             conditionalPanel(
               condition = sprintf("['lr.hier','lr.circle','lr.chord'].indexOf(input['%s']) >= 0",
                                   ns("zoom.plot")),
               selectInput(ns("zoom.lr"), "L-R pair:", choices = NULL)
             ),
-            cell.type.selector.ui(ns, "zoom.sources", "Sources:"),
-            cell.type.selector.ui(ns, "zoom.targets",
-                                  "Targets (also used as hierarchy receivers):"),
+            conditionalPanel(
+              condition = sprintf("['pw.hier','lr.hier'].indexOf(input['%s']) >= 0",
+                                  ns("zoom.plot")),
+              selectInput(ns("zoom.receivers"), "Vertex Receiver:",
+                          choices = NULL, multiple = TRUE)
+            ),
+            conditionalPanel(
+              condition = sprintf(
+                "['pw.circle','pw.chord','lr.circle','lr.chord','bubble'].indexOf(input['%s']) >= 0",
+                ns("zoom.plot")),
+              cell.type.selector.ui(ns, "zoom.sources", "Sources:"),
+              cell.type.selector.ui(ns, "zoom.targets", "Targets:"),
+              checkboxInput(ns("zoom.remove.isolate"), "Remove isolate", value = FALSE)
+            ),
+            conditionalPanel(
+              condition = sprintf("input['%s'] == 'violin'", ns("zoom.plot")),
+              checkboxInput(ns("zoom.enriched.only"), "Enriched genes only", value = TRUE)
+            ),
             common.controls.ui(ns, "zoom", default.cols = 1)
           ),
           mainPanel(width = 9,
@@ -102,7 +128,6 @@ mod.interact.cellchat.vis.ui <- function(id) {
                                        "All" = "all"),
                            selected = "all")
             ),
-            cell.type.selector.ui(ns, "sig.idents", "Cell types (subset):"),
             common.controls.ui(ns, "sig", default.cols = 1)
           ),
           mainPanel(width = 9,
@@ -127,7 +152,6 @@ mod.interact.cellchat.vis.ui <- function(id) {
               selectInput(ns("pat.group"), "Group:", choices = NULL),
               numericInput(ns("pat.k"), "Number of patterns (k):",
                            value = 3, min = 2, max = 10, step = 1),
-              cell.type.selector.ui(ns, "pat.idents", "Cell types (subset):"),
               helpText("Shows outgoing and incoming patterns side by side.")
             ),
             conditionalPanel(
@@ -201,6 +225,71 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       Reduce(union, lapply(res$cellchat.list, function(cc) levels(cc@idents)))
     })
 
+    # The cell types the user kept, in ident.choices() order rather than click
+    # order, so "first half" defaults and index-based arguments stay stable.
+    subset.universe <- reactive({
+      all.idents <- ident.choices()
+      req(all.idents)
+      intersect(all.idents, input$subset.idents %||% all.idents)
+    })
+
+    # App-wide subset shared by all four subtabs. Lazy on purpose: subsetCellChat
+    # re-derives pathway aggregation per group, so the cost lands on the first
+    # "Generate Plot" after a selection change rather than on every click in the
+    # selector. status[[group]] is NA when that group rendered fine, or the message
+    # a panel should show instead of a plot.
+    cellchat.subset <- reactive({
+      res <- cellchat.data(); req(res)
+      sel <- subset.universe()
+      validate(need(length(sel) > 0,
+                    "Select at least one cell type in the panel at the top of this tab."))
+      grps <- res$group.levels
+      status <- setNames(rep(NA_character_, length(grps)), grps)
+
+      if (setequal(sel, ident.choices())) {
+        return(list(cellchat.list = res$cellchat.list,
+                    cellchat.merged = res$cellchat.merged,
+                    status = status))
+      }
+
+      subs <- setNames(vector("list", length(grps)), grps)
+      withProgress(message = "Subsetting CellChat objects", value = 0, {
+        for (g in grps) {
+          incProgress(1 / length(grps), detail = g)
+          cc <- res$cellchat.list[[g]]
+          present <- intersect(sel, levels(cc@idents))
+          if (length(present) == 0) {
+            status[[g]] <- "selected cell types absent in this group"
+          } else if (length(present) < 2) {
+            status[[g]] <- "select >= 2 cell types present in this group"
+          } else if (setequal(present, levels(cc@idents))) {
+            # Nothing to drop for this group; a no-op subsetCellChat recompute
+            # errors on some objects, so skip it.
+            subs[[g]] <- cc
+          } else {
+            out <- tryCatch({
+              sub <- subsetCellChat(cc, idents.use = present)
+              # subsetCellChat recomputes @netP$centr from the L-R-level prob,
+              # leaving it indexed by L-R pair instead of pathway. The
+              # signaling-role plots expect pathway-indexed centrality and
+              # otherwise crash ("'from' must be a finite number").
+              sub@netP$centr <- netAnalysis_computeCentrality(net = sub@netP$prob)
+              sub
+            }, error = function(e) paste("subset failed:", conditionMessage(e)))
+            if (is.character(out)) status[[g]] <- out else subs[[g]] <- out
+          }
+        }
+      })
+
+      # Rebuild rather than subset the merged object: mergeCellChat is the
+      # supported construction path, subsetCellChat is not written for merges.
+      ok <- names(subs)[!vapply(subs, is.null, logical(1))]
+      merged <- if (length(ok) >= 2)
+        tryCatch(mergeCellChat(subs[ok], add.names = ok), error = function(e) NULL) else NULL
+
+      list(cellchat.list = subs, cellchat.merged = merged, status = status)
+    })
+
     lr.choices <- reactive({
       res <- cellchat.data()
       req(res, input$zoom.pathway)
@@ -217,6 +306,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       pw <- pathway.choices()
       updateSelectInput(session, "zoom.pathway", choices = pw,
                         selected = if (length(pw)) pw[1] else NULL)
+      updateSelectInput(session, "zoom.pathways", choices = pw,
+                        selected = if (length(pw)) pw[1] else NULL)
       # Multi-select shared by heatmap (empty = all pathways) and score (empty =
       # prompt for a pathway), so default to no selection rather than the first.
       updateSelectInput(session, "sig.pathway", choices = pw, selected = character(0))
@@ -228,12 +319,25 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
                         selected = if (length(lr)) lr[1] else NULL)
     })
 
-    wire.cell.type.selector(input, session, "global.sources", ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "global.targets", ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "zoom.sources", ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "zoom.targets", ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "sig.idents", ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "pat.idents", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "subset.idents", ident.choices, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "global.sources", subset.universe, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "global.targets", subset.universe, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "zoom.sources", subset.universe, selected.all = TRUE)
+    wire.cell.type.selector(input, session, "zoom.targets", subset.universe, selected.all = TRUE)
+
+    # Receivers get no Select All button: selecting every cell type leaves the
+    # hierarchy plot with no sender side. Default is the first half.
+    observe({
+      u <- subset.universe()
+      req(length(u) > 0)
+      updateSelectInput(session, "zoom.receivers", choices = u,
+                        selected = u[seq_len(ceiling(length(u) / 2))])
+    })
+
+    observeEvent(input$zoom.plot, {
+      updateCheckboxInput(session, "zoom.remove.isolate",
+                          value = identical(input$zoom.plot, "bubble"))
+    })
 
     observe({
       res <- cellchat.data()
@@ -291,23 +395,31 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
     global.thunk <- function() {
       res <- cellchat.data(); req(res, input$global.plot, input$global.measure)
+      sub.res <- cellchat.subset(); req(sub.res)
       grps <- res$group.levels
       ncol <- input$global.cols %||% 1
-      all.idents <- ident.choices()
+      all.idents <- subset.universe()
       srcs <- input$global.sources; tgts <- input$global.targets
       measure <- input$global.measure
 
+      cc.ok <- Filter(Negate(is.null), sub.res$cellchat.list)
+      req(length(cc.ok) > 0)
       weight.max <- tryCatch(
-        getMaxWeight(res$cellchat.list, attribute = c("idents", measure)),
+        getMaxWeight(cc.ok, attribute = c("idents", measure)),
         error = function(e) NULL
       )
-      vertex.weight.max <- max(unlist(lapply(res$cellchat.list, function(cc) {
+      vertex.weight.max <- max(unlist(lapply(cc.ok, function(cc) {
         as.numeric(table(cc@idents))
       })))
 
       items <- lapply(grps, function(g) {
         force(g)
-        cc <- res$cellchat.list[[g]]
+        subset.msg <- sub.res$status[[g]]
+        if (!is.na(subset.msg)) {
+          return(if (input$global.plot == "circle")
+            function() placeholder.base(g, subset.msg) else placeholder.ht(g, subset.msg))
+        }
+        cc <- sub.res$cellchat.list[[g]]
         s <- resolve.sel(levels(cc@idents), srcs, all.idents)
         t <- resolve.sel(levels(cc@idents), tgts, all.idents)
         mat <- if (measure == "count") cc@net$count else cc@net$weight
@@ -366,72 +478,83 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     # =====================================================
 
     zoom.thunk <- function() {
-      res <- cellchat.data(); req(res, input$zoom.plot, input$zoom.pathway)
+      res <- cellchat.data(); req(res, input$zoom.plot)
+      sub.res <- cellchat.subset(); req(sub.res)
       grps <- res$group.levels
       ncol <- input$zoom.cols %||% 1
-      pw <- input$zoom.pathway
-      lr <- input$zoom.lr
-      srcs <- nz(input$zoom.sources); tgts <- nz(input$zoom.targets)
-      all.idents <- ident.choices()
       pt <- input$zoom.plot
       is.lr <- startsWith(pt, "lr.")
+      is.hier <- pt %in% c("pw.hier", "lr.hier")
+      # conditionalPanel only hides inputs, so a stale sources/targets selection is
+      # still readable here — only honour it for the plot types that expose it.
+      uses.st <- pt %in% c("pw.circle", "pw.chord", "lr.circle", "lr.chord", "bubble")
+
+      pw <- if (pt == "bubble") nz(input$zoom.pathways) else input$zoom.pathway
+      validate(need(length(pw) > 0, "Select at least one pathway."))
+      lr <- input$zoom.lr
+      srcs <- nz(input$zoom.sources); tgts <- nz(input$zoom.targets)
+      rcvs <- nz(input$zoom.receivers)
+      all.idents <- subset.universe()
+      remove.isolate <- isTRUE(input$zoom.remove.isolate)
       layout.map <- c(pw.hier = "hierarchy", pw.circle = "circle", pw.chord = "chord",
                       lr.hier = "hierarchy", lr.circle = "circle", lr.chord = "chord")
 
       # Per-group status: the absence message (if any) for this group
       group.status <- function(cc) {
-        s <- resolve.sel(levels(cc@idents), srcs, all.idents)
-        t <- resolve.sel(levels(cc@idents), tgts, all.idents)
+        lv <- levels(cc@idents)
+        s <- resolve.sel(lv, srcs, all.idents)
+        t <- resolve.sel(lv, tgts, all.idents)
+        # vertex.receiver indexes THIS group's ident levels, so re-match per group
+        # rather than reusing positions from the selector's own ordering.
+        rcv.idx <- sort(match(intersect(rcvs, lv), lv))
+        pw.use <- intersect(pw, cc@netP$pathways)
         msg <- NULL
-        if (s$empty || t$empty) msg <- "selection absent"
-        else if (!pw %in% cc@netP$pathways) msg <- "pathway absent"
+        if (uses.st && (s$empty || t$empty)) msg <- "selection absent"
+        else if (length(pw.use) == 0)
+          msg <- if (length(pw) > 1) "pathways absent" else "pathway absent"
+        else if (is.hier && length(rcv.idx) == 0) msg <- "vertex receiver absent"
+        else if (is.hier && length(rcv.idx) == length(lv))
+          msg <- "vertex receiver covers all cell types"
         else if (is.lr) {
           enriched <- tryCatch(
-            extractEnrichedLR(cc, signaling = pw, geneLR.return = FALSE)$interaction_name,
+            extractEnrichedLR(cc, signaling = pw.use, geneLR.return = FALSE)$interaction_name,
             error = function(e) character()
           )
           if (is.null(lr) || !(lr %in% enriched)) msg <- "L-R pair absent"
         }
-        list(s = s, t = t, msg = msg)
+        list(s = s, t = t, rcv.idx = rcv.idx, pw.use = pw.use, msg = msg)
       }
 
       items <- lapply(grps, function(g) {
         force(g)
-        cc <- res$cellchat.list[[g]]
-        st <- group.status(cc)
+        subset.msg <- sub.res$status[[g]]
+        cc <- sub.res$cellchat.list[[g]]
+        st <- if (is.na(subset.msg)) group.status(cc) else
+          list(s = NULL, t = NULL, rcv.idx = integer(0), pw.use = pw, msg = subset.msg)
         s <- st$s; t <- st$t; missing.msg <- st$msg
 
         if (pt == "bubble") {
           if (!is.null(missing.msg))
             return(placeholder.gg(g, missing.msg))
-          return(netVisual_bubble(cc, signaling = pw,
+          return(netVisual_bubble(cc, signaling = st$pw.use,
                                   sources.use = if (s$active) s$use else NULL,
                                   targets.use = if (t$active) t$use else NULL,
-                                  remove.isolate = FALSE) + ggtitle(g))
+                                  remove.isolate = remove.isolate) + ggtitle(g))
         }
 
         if (pt == "violin") {
           if (!is.null(missing.msg))
             return(placeholder.gg(g, missing.msg))
-          cc.sub <- cc
-          keep <- union(if (s$active) s$use else NULL,
-                        if (t$active) t$use else NULL)
-          if (length(keep) > 0 && length(keep) < length(levels(cc@idents))) {
-            cells <- names(cc@idents)[cc@idents %in% keep]
-            cc.sub <- subsetCellChat(cc, cells.use = cells)
-          }
-          return(plotGeneExpression(cc.sub, signaling = pw, enriched.only = TRUE) +
+          return(plotGeneExpression(cc, signaling = st$pw.use, type = "violin",
+                                    enriched.only = isTRUE(input$zoom.enriched.only)) +
                    patchwork::plot_annotation(title = g))
         }
 
         if (pt == "pw.heat") {
           if (!is.null(missing.msg))
             return(placeholder.ht(g, missing.msg))
-          args <- list(object = cc, signaling = pw,
-                       color.heatmap = "Reds", title.name = g)
-          if (s$active) args$sources.use <- s$use
-          if (t$active) args$targets.use <- t$use
-          return(do.call(netVisual_heatmap, args))
+          return(netVisual_heatmap(cc, signaling = st$pw.use,
+                                   color.heatmap = "Reds", title.name = g))
         }
 
         # Base-graphics: circle / chord / hierarchy for pw or lr
@@ -440,15 +563,15 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
             plot.new(); title(paste0(g, "\n(", missing.msg, ")")); return(invisible())
           }
           layout <- layout.map[[pt]]
-          common <- list(object = cc, signaling = pw, layout = layout)
+          common <- list(object = cc, signaling = st$pw.use, layout = layout)
           if (layout == "hierarchy") {
-            lv <- levels(cc@idents)
-            idx <- if (!is.null(tgts) && length(tgts) > 0) which(lv %in% tgts) else integer(0)
-            common$vertex.receiver <- if (length(idx) > 0 && length(idx) < length(lv))
-              idx else seq_len(ceiling(length(lv) / 2))
+            common$vertex.receiver <- st$rcv.idx
+            # Hierarchy needs both sides drawn, so isolates always stay.
+            common$remove.isolate <- FALSE
           } else {
             if (s$active) common$sources.use <- s$use
             if (t$active) common$targets.use <- t$use
+            common$remove.isolate <- remove.isolate
           }
           if (is.lr) {
             common$pairLR.use <- lr
@@ -465,7 +588,10 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       zoom.thunk,
       width.in = total.w("zoom"),
       height.in = total.h("zoom", n.panels.zoom),
-      filename.stem = reactive(paste0("zoom_", input$zoom.plot, "_", input$zoom.pathway)),
+      filename.stem = reactive(paste0(
+        "zoom_", input$zoom.plot, "_",
+        if (identical(input$zoom.plot, "bubble"))
+          paste(nz(input$zoom.pathways), collapse = "-") else input$zoom.pathway)),
       trigger = reactive(input$zoom.plot.btn))
 
     # =====================================================
@@ -481,35 +607,9 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       cc
     }
 
-    # Restrict a CellChat object to the user-selected cell types for the
-    # Signaling / Patterns tabs. subsetCellChat slices the existing prob array and
-    # RECOMPUTES pathway aggregation + centrality on the sub-network, so these plots
-    # show signaling roles *within* the selected subset (not full-network roles).
-    # Returns the subset CellChat object, or a character message the caller renders
-    # as a placeholder. When the user hasn't narrowed the set, returns cc unchanged.
-    subset.for.idents <- function(cc, sel) {
-      present <- levels(cc@idents)
-      s <- resolve.sel(present, sel, ident.choices())
-      if (!s$active) return(cc)
-      if (s$empty) return("selected cell types absent in this group")
-      # Only subset a PROPER subset of THIS group's cell types. Removing a type
-      # that this group never had would otherwise trigger a no-op subsetCellChat
-      # recompute, which errors on some objects.
-      if (setequal(s$use, present)) return(cc)
-      if (length(s$use) < 2) return("select ≥ 2 cell types")
-      tryCatch({
-        sub <- subsetCellChat(cc, idents.use = s$use)
-        # subsetCellChat recomputes @netP$centr from the L-R-level prob, leaving it
-        # indexed by L-R pair instead of pathway. The signaling-role plots expect
-        # pathway-indexed centrality and otherwise crash ("'from' must be a finite
-        # number"). Recompute it from the pathway-level netP$prob.
-        sub@netP$centr <- netAnalysis_computeCentrality(net = sub@netP$prob)
-        sub
-      }, error = function(e) paste("subset failed:", conditionMessage(e)))
-    }
-
     sig.thunk <- function() {
       res <- cellchat.data(); req(res, input$sig.plot)
+      sub.res <- cellchat.subset(); req(sub.res)
       grps <- res$group.levels
       ncol <- max(1, input$sig.cols %||% 1)
       sig.pw <- nz(input$sig.pathway)
@@ -532,18 +632,18 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       }
 
       for (g in grps) {
-        sub <- subset.for.idents(res$cellchat.list[[g]], input$sig.idents)
-        if (is.character(sub)) {
+        subset.msg <- sub.res$status[[g]]
+        if (!is.na(subset.msg)) {
           if (input$sig.plot == "score") {
-            for (pw in sig.pw) add(placeholder.gg(g, sub), paste0(g, " — ", pw))
+            for (pw in sig.pw) add(placeholder.gg(g, subset.msg), paste0(g, " — ", pw))
           } else if (input$sig.plot == "heatmap") {
-            add(placeholder.ht(g, sub), g)
+            add(placeholder.ht(g, subset.msg), g)
           } else {
-            add(placeholder.gg(g, sub), g)
+            add(placeholder.gg(g, subset.msg), g)
           }
           next
         }
-        cc <- compute.centrality(sub)
+        cc <- compute.centrality(sub.res$cellchat.list[[g]])
 
         if (input$sig.plot == "scatter") {
           add(tryCatch(netAnalysis_signalingRole_scatter(cc) + ggtitle(g),
@@ -590,10 +690,16 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
 
     pat.thunk <- function() {
       res <- cellchat.data(); req(res, input$pat.plot)
+      sub.res <- cellchat.subset(); req(sub.res)
 
       if (input$pat.plot == "manifold") {
         req(input$pat.sim.type)
-        merged <- res$cellchat.merged
+        merged <- sub.res$cellchat.merged
+        if (is.null(merged)) {
+          plot.new()
+          title("Manifold needs >= 2 groups surviving the cell-type selection")
+          return(invisible())
+        }
         tryCatch({
           merged <- computeNetSimilarityPairwise(merged, type = input$pat.sim.type)
           merged <- netEmbedding(merged, type = input$pat.sim.type, umap.method = "uwot")
@@ -610,9 +716,9 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       k <- input$pat.k
       ncol <- input$pat.cols %||% 1
 
-      sub <- subset.for.idents(res$cellchat.list[[g]], input$pat.idents)
-      if (is.character(sub)) return(plot.grid(list(placeholder.gg(g, sub)), 1))
-      cc <- compute.centrality(sub); req(cc)
+      subset.msg <- sub.res$status[[g]]
+      if (!is.na(subset.msg)) return(plot.grid(list(placeholder.gg(g, subset.msg)), 1))
+      cc <- compute.centrality(sub.res$cellchat.list[[g]]); req(cc)
 
       n.types <- length(levels(cc@idents))
       if (k >= n.types) {
