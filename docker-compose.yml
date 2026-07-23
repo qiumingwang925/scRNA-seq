@@ -5,6 +5,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      args:
+        # Stamps the image with the commit it was built from. Set it with
+        #   SOURCE_COMMIT=$(git rev-parse HEAD) docker compose build
+        # Defaults to "unknown" so a plain `docker compose build` still works.
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
     image: scnexus-demo:latest
     container_name: scnexus-demo
     ports:

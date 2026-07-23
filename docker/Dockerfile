@@ -59,6 +59,17 @@ COPY docker/start.sh   /usr/local/bin/start.sh
 
 RUN chmod +x /usr/local/bin/start.sh && chown -R appuser:appuser /srv/app
 
+# Record which source revision produced this image. Declared here, after the
+# app COPY, so a new commit doesn't invalidate the expensive package layer
+# above. Pass it at build time:
+#   docker build --build-arg SOURCE_COMMIT=$(git rev-parse HEAD) ...
+# Left as "unknown" when omitted, which is itself a useful signal: an image
+# that can't name its source wasn't built by the release path.
+ARG SOURCE_COMMIT=unknown
+LABEL org.opencontainers.image.revision="${SOURCE_COMMIT}"
+LABEL org.opencontainers.image.source="https://github.com/qiumingwang925/scRNA-seq"
+RUN echo "Source commit: ${SOURCE_COMMIT}" >> /srv/BUILD_VERSIONS.txt
+
 USER appuser
 
 # 3838 = landing page; 3839-3842 = Modules I-IV.
