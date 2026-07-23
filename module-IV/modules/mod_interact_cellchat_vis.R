@@ -545,9 +545,13 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         if (pt == "violin") {
           if (!is.null(missing.msg))
             return(placeholder.gg(g, missing.msg))
-          return(plotGeneExpression(cc, signaling = st$pw.use, type = "violin",
-                                    enriched.only = isTRUE(input$zoom.enriched.only)) +
-                   patchwork::plot_annotation(title = g))
+          # plotGeneExpression returns a patchwork (one violin per gene), and
+          # patchwork drops a nested patchwork's plot_annotation when plot.grid
+          # re-wraps it. wrap_elements seals it so the group title survives.
+          return(patchwork::wrap_elements(
+            plotGeneExpression(cc, signaling = st$pw.use, type = "violin",
+                               enriched.only = isTRUE(input$zoom.enriched.only)) +
+              patchwork::plot_annotation(title = g)))
         }
 
         if (pt == "pw.heat") {
