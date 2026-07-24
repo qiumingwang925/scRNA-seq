@@ -48,10 +48,12 @@ host folder the apps can see.
 
 | File | Used by |
 |------|---------|
-| `Demo_Module_I_21401X3.rds` | **Module I** — load with *Option 2 — Processed Seurat object (.rds)* on the Import tab |
-| `Demo_Module_II_21401X3_control.rds` | **Module II** — one of three samples to merge and integrate |
-| `Demo_Module_II_22713X2_disease.rds` | **Module II** |
-| `Demo_Module_II_24143X4_control.rds` | **Module II** |
+| `Demo_Module_I_MEX_21401X3.rds` | **Module I** — load with *Option 1 — Cell Ranger MEX folder* on the Import tab |
+| `Demo_Module_I_21401X3_Subset.rds` | **Module I** — load with *Option 2 — Processed Seurat object (.rds)* on the Import tab |
+| `Demo_Module_II_21401X3_control.rds` | **Module II** — samples to merge and integrate |
+| `Demo_Module_II_22713X2_disease.rds` | **Module II** — samples to merge and integrate |
+| `Demo_Module_II_24143X4_control.rds` | **Module II** — samples to merge and integrate |
+| `Demo_Module_III_IV_(control_vs_disease).rds` | **Module III** — data mining, figure and table generation ** Module IV** - CellChat and LIANA computation input|
 
 **Modules III and IV have no separate demo file** — both take the annotated
 object that Module II produces. Run Module II first and save its output to
