@@ -27,7 +27,7 @@ Load the per-sample objects, label them, and merge into one.
 4. Click the **Merge Objects** to combine them into a single object.
 5. Once merged, a summary will be showed under **Merge Status**
 
-> 📷 **Screenshot:** _Upload & Merge tab with samples listed and metadata assigned_ — `img/module-II/01-upload-merge.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-II/01-upload-merge.png)
 
 **Result:** one merged Seurat object carrying per-sample metadata, ready to
 integrate.
@@ -40,14 +40,14 @@ Normalize and transform data. Apply one or more integration methods to remove ba
 
 1. Open the **Integration** tab.
 2. Choose a normalization method — **Log Normalization** (default) or **SCTransform**. The
-   available *Regress Factors* update to match the method.
-   Note: For Log Normalization, *Regress Factor* **nCount_RNA** is recommended.
+   available **Regress Factors** update to match the method.
+   Note: For Log Normalization, **Regress Factor** `nCount_RNA` is recommended.
 4. Choose a batch-integration method: **CCA**, **RPCA**, **Harmony**, or
    **FastMNN** (only available for Log Normalization).
 5. Click **Run Pipeline** to run the integration workflows.
 6. **Pipeline Status Log** summrizes the normalization and reductions of process integration methods.
 
-> 📷 **Screenshot:** _Integration tab with method selected and integrated UMAP_ — `img/module-II/02-integration.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-II/02-integration.png)
 
 **Result:** multiple integrated PCA and UMAP embeddings added to the Seurat object.
 
@@ -73,7 +73,10 @@ Quantify how well the integration worked.
 5.  Utilize **Rank Summary** and **Score Distribution** to compare method performance. *Median Score Summry* displays scores rounded to three decimal places, whereas *Rank Summary* calculates rankings using the full-precision scores.
 
 
-> 📷 **Screenshot:** _Benchmarking tab with ranked metric comparison_ — `img/module-II/03-benchmark.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-II/03-benchmark-rank.png)
+
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-II/04-benchmark-score.png)
+
 
 **Result:** *Rank Summary* and *Score Distribution* summarize the integration performance of each method to support method selection. Use these results together with the UMAP Visual Inspection in the next step to make the final decision.
  
@@ -89,10 +92,21 @@ Cluster and label the integrated object.
 - batch mixing: same cell type from different samples overlap with each other
 - cell-type separation: (sub-)cell types from different samples remain separated
 5. Explore the data using the available tools, including interactive cell selection, re-clustering, coloring metadata variables, gene expression visualization, differential expression analysis, and manual cell-type labeling (same workflow as the **Module I Annotation** tab)
-6. Save the annotated object as `.rds`
-- Full object: multiple integrated PCA
 
-> 📷 **Screenshot:** _Annotation tab with labeled clusters_ — `img/module-II/04-annotation.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-II/05-annotation.png)
+
+6. Save the annotated object as `.rds`
+- **Full object**: multiple Assays, Reductions, Graphs
+- **Module III analysis-ready object**: **Assays**: `RNA` or `SCT`; **Layers**: `counts` and `data`; **Reductions and Graph**: matched PCA, UMAP, and SNN; minimum **Metadata columns**: `orig.ident`, `nCount_RNA`, `S.Score`, `G2M`.Score`, `manual_annotation`,`batch`, and `group`. **Set active identity to** `manual_annotation`.
+- **Module IV analysis-ready object**:`RNA` or `SCT`; **Layers**:`dat a`; **Reductions and Graph**: matched PCA, UMAP, and SNN; minimum **Metadata columns**: `orig.ident`, `manual_annotation`, and `group`. **Set active identity to** `manual_annotation`.
+Note: selection of integration regarding to **Reductions** and **Graphs**
+- **unintegrated**: `pca`, `umap`, `snn`
+- **CCA**: `integrated.cca`, `umap.cca`, `snn.cca`
+- **RPCA**: `integrated.rpca`, `umap.rpca`, `snn.rpca`
+- **Harmony**: `integrated.harmony`, `umap.harmony`, `snn.harmony`
+- **FastMNN**: `integrated.fastmnn`, `umap.fastmnn`, `snn.fastmnn`
+  
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-II/06-download.png)
 
 **Result:** an annotated, integrated object — the input for
 [Module III](module-III.md) and [Module IV](module-IV.md).
