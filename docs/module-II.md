@@ -7,7 +7,7 @@ and annotate the integrated object.
 
 | | |
 |---|---|
-| **Input** | Two or more processed Seurat `.rds` objects (Module I output). Testing datasets`Demo_Module_II_21401X3_control.rds`, 'Demo_Module_II_24143X4_control.rds`, `Demo_Module_II_22713X2_disease.rds` |
+| **Input** | Two or more processed Seurat `.rds` objects (Module I output). Testing datasets`Demo_Module_II_21401X3_control.rds`, `Demo_Module_II_24143X4_control.rds`, `Demo_Module_II_22713X2_disease.rds` |
 | **Output** | Annotated, integrated Seurat `.rds` |
 | **Next module** | [Module III](module-III.md) / [Module IV](module-IV.md) |
 
