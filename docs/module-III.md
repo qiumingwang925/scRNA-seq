@@ -37,7 +37,7 @@ Color the UMAP by cell type and inspect gene expression.
 
 1. Open the **UMAP** tab
 2. **Interactive Selection**:
-- **All cells**
+- **All cells**: click **Reset Everything** to witch back from selected cell view to all cell view.
 
 > 📷 **Screenshot:**
 > ![Screenshot for uploading file](img/module-III/02-umap-interact-all.png)
@@ -51,21 +51,21 @@ The selection will be used in **Highlight View** and **Gene Expression**.
 3. **Highlighted View**: 
 - **Selected Cell Types(s) to Highlight**: cell type(s) selected are colored and rest of them are in light grey.
 
-> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/04-umap-highlight.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-III/04-umap-highlight.png)
 
 - **Split By(optionall)**: the UMAP can be splited by `None`, `orig.ident`(sample ID), `batch`, and `group`.
 - **Grid Columns**: adjust the number for multi-panel figure genaration.
 
-> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/05-umap-highlight-split.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-III/05-umap-highlight-split.png)
 
 4. **Gene Expression** 
 - **Expression**: individual gene expression in UMAP (splited by `None`, `orig.ident`(sample ID), `batch`, and `group`) 
 
-> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/06-umap-exp.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-III/06-umap-exp.png)
 
 - **Co-expression**:  co-expression of two genes in UAMP (splited by `None`, `orig.ident`(sample ID), `batch`, and `group`) 
 
-> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/07-umap-coexp.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-III/07-umap-coexp.png)
 
 **Result:** an interactive, downloadable UMAP showing cell types, conditons, and gene (co-)expressions.
 
