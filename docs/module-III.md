@@ -8,7 +8,7 @@ available in any order.
 
 | | |
 |---|---|
-| **Input** | Annotated Seurat `.rds` (Module II output). For testing, use `Demo_Module_III_control_vs_disease.rds`  |
+| **Input** | Annotated Seurat `.rds` (Module II output). For testing, use `Demo_Module_III_IV_(control_vs_disease).rds`  |
 | **Output** | Figures and tables (downloadable per tab) |
 
 > Every visualization tab downloads its figure with adjustable width and height. The Enrichment tab consumes the
@@ -21,12 +21,12 @@ available in any order.
 Load the object and confirm it is in the expected shape.
 
 1. Open the **Upload Data** tab.
-2. Load an annotated `.rds` — the object [Module II](module-II.md) produced,
-   saved into `datasets/`.
+2. Load an annotated `.rds` — the object [Module II](module-II.md) produced. 
 3. Check the structure summary — cell counts, metadata columns, and assays.
 
-> 📷 **Screenshot:** 
-![Screenshot for uploading file](img/module-III/01-upload.png)
+> 📷 **Screenshot:**
+> ![Screenshot for uploading file](img/module-III/01-upload.png)
+
 **Result:** the seurat object is validated and shared with every visualization tab.
 
 ---
@@ -36,13 +36,38 @@ Load the object and confirm it is in the expected shape.
 Color the UMAP by cell type and inspect gene expression.
 
 1. Open the **UMAP** tab
-2. In **Interactive Selection**, all cells or selected cells (box or lasso selection) with the newly generated UMAP coordinates will be used in **Highlight View** and **Gene Expression** subtabs.
-3. In **Highlighted View**, cell type(s) selected are colored and rest of them are in light grey. The UMAP can be splited by `None`, `orig.ident`(sample ID), `batch`, and `group`. The **Grid Columns** can be adjusted for multi-panel figure genaration.
-4. **Gene Expression** contains indivisual gene **Expression** and **Co-expression** of two genes. Both of them can be splited by `None`, `orig.ident`(sample ID), `batch`, and `group`. 
+2. **Interactive Selection**:
+- **All cells**
 
-> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/02-umap.png`
+> 📷 **Screenshot:**
+> ![Screenshot for uploading file](img/module-III/02-umap-interact-all.png)
 
-**Result:** an interactive, downloadable UMAP.
+- **Selected cells (subset)**:  subset cells by box or lasso selection and new UMAP coordinates
+The selection will be used in **Highlight View** and **Gene Expression**.
+
+> 📷 **Screenshot:**
+> ![Screenshot for uploading file](img/module-III/03-umap-interact-selected.png)
+
+3. **Highlighted View**: 
+- **Selected Cell Types(s) to Highlight**: cell type(s) selected are colored and rest of them are in light grey.
+
+> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/04-umap-highlight.png`
+
+- **Split By(optionall)**: the UMAP can be splited by `None`, `orig.ident`(sample ID), `batch`, and `group`.
+- **Grid Columns**: adjust the number for multi-panel figure genaration.
+
+> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/05-umap-highlight-split.png`
+
+4. **Gene Expression** 
+- **Expression**: individual gene expression in UMAP (splited by `None`, `orig.ident`(sample ID), `batch`, and `group`) 
+
+> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/06-umap-exp.png`
+
+- **Co-expression**:  co-expression of two genes in UAMP (splited by `None`, `orig.ident`(sample ID), `batch`, and `group`) 
+
+> 📷 **Screenshot:** _UMAP colored by cell type_ — `img/module-III/07-umap-coexp.png`
+
+**Result:** an interactive, downloadable UMAP showing cell types, conditons, and gene (co-)expressions.
 
 ---
 
@@ -51,8 +76,10 @@ Color the UMAP by cell type and inspect gene expression.
 Expression distributions by cell type.
 
 1. Open the **Violin Plot** tab.
-2. Enter the gene(s) to plot.
-3. Optionally stack genes and/or split by a metadata column (`split.by`).
+2. Select **Cell Type(s)**.
+3. Enter the **Gene(s)**.
+4. Check **Flip Axes** to switch the cell-type identity and gene expression level on axises.
+5. Optionally **Split By** `None`, `orig.ident`, `batch`, `group`.
 
 > 📷 **Screenshot:** _Violin plot for selected genes_ — `img/module-III/03-violin.png`
 
