@@ -116,9 +116,13 @@ mod.interact.cellchat.vis.ui <- function(id) {
                                      "Heatmap (pathway × cell type)" = "heatmap"),
                          selected = "scatter"),
             conditionalPanel(
-              condition = sprintf("['score','heatmap'].indexOf(input['%s']) >= 0",
-                                  ns("sig.plot")),
-              selectInput(ns("sig.pathway"), "Pathways:", choices = NULL, multiple = TRUE)
+              condition = sprintf("input['%s'] == 'score'", ns("sig.plot")),
+              selectInput(ns("sig.score.pathway"), "Pathway:", choices = NULL)
+            ),
+            conditionalPanel(
+              condition = sprintf("input['%s'] == 'heatmap'", ns("sig.plot")),
+              selectInput(ns("sig.heat.pathways"), "Pathways:",
+                          choices = NULL, multiple = TRUE)
             ),
             conditionalPanel(
               condition = sprintf("input['%s'] == 'heatmap'", ns("sig.plot")),
@@ -308,9 +312,10 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
                         selected = if (length(pw)) pw[1] else NULL)
       updateSelectInput(session, "zoom.pathways", choices = pw,
                         selected = if (length(pw)) pw[1] else NULL)
-      # Multi-select shared by heatmap (empty = all pathways) and score (empty =
-      # prompt for a pathway), so default to no selection rather than the first.
-      updateSelectInput(session, "sig.pathway", choices = pw, selected = character(0))
+      updateSelectInput(session, "sig.score.pathway", choices = pw,
+                        selected = if (length(pw)) pw[1] else NULL)
+      # Empty means "all pathways" for the heatmap, so default to no selection.
+      updateSelectInput(session, "sig.heat.pathways", choices = pw, selected = character(0))
     })
 
     observe({
@@ -352,12 +357,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
     # than cramming every panel into a fixed height (which squeezed titles at cols=1).
     n.panels.global <- reactive({ res <- cellchat.data(); req(res); length(res$group.levels) })
     n.panels.zoom   <- reactive({ res <- cellchat.data(); req(res); length(res$group.levels) })
-    n.panels.sig <- reactive({
-      res <- cellchat.data(); req(res)
-      if (identical(input$sig.plot, "score"))
-        length(res$group.levels) * max(1L, length(nz(input$sig.pathway)))
-      else length(res$group.levels)
-    })
+    n.panels.sig <- reactive({ res <- cellchat.data(); req(res); length(res$group.levels) })
     n.panels.pat <- reactive({ if (identical(input$pat.plot, "manifold")) 1L else 2L })
 
     grid.cols <- function(prefix) max(1L, input[[paste0(prefix, ".cols")]] %||% 1L)
@@ -616,11 +616,12 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
       sub.res <- cellchat.subset(); req(sub.res)
       grps <- res$group.levels
       ncol <- max(1, input$sig.cols %||% 1)
-      sig.pw <- nz(input$sig.pathway)
+      heat.pw <- nz(input$sig.heat.pathways)
+      score.pw <- input$sig.score.pathway
 
       # Score is inherently per-pathway; without a pathway there is nothing to draw.
-      if (input$sig.plot == "score" && is.null(sig.pw)) {
-        return(plot.grid(list(placeholder.gg("Score", "select ≥ 1 pathway")), 1))
+      if (input$sig.plot == "score") {
+        validate(need(!is.null(score.pw) && nzchar(score.pw), "Select a pathway."))
       }
 
       # CellChat's heatmap/network draw at absolute cm sizes, so scale them to the
@@ -639,7 +640,7 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
         subset.msg <- sub.res$status[[g]]
         if (!is.na(subset.msg)) {
           if (input$sig.plot == "score") {
-            for (pw in sig.pw) add(placeholder.gg(g, subset.msg), paste0(g, " — ", pw))
+            add(placeholder.gg(g, subset.msg), paste0(g, " — ", score.pw))
           } else if (input$sig.plot == "heatmap") {
             add(placeholder.ht(g, subset.msg), g)
           } else {
@@ -653,8 +654,8 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
           add(tryCatch(netAnalysis_signalingRole_scatter(cc) + ggtitle(g),
                        error = function(e) placeholder.gg(g, conditionMessage(e))), g)
         } else if (input$sig.plot == "heatmap") {
-          pw.use <- if (is.null(sig.pw)) NULL else intersect(sig.pw, cc@netP$pathways)
-          if (!is.null(sig.pw) && length(pw.use) == 0) {
+          pw.use <- if (is.null(heat.pw)) NULL else intersect(heat.pw, cc@netP$pathways)
+          if (!is.null(heat.pw) && length(pw.use) == 0) {
             add(placeholder.ht(g, "selected pathways absent"), g)
           } else {
             add(tryCatch(netAnalysis_signalingRole_heatmap(
@@ -662,21 +663,19 @@ mod.interact.cellchat.vis.server <- function(id, cellchat.input) {
                   width = panel.w.cm * 0.5, height = panel.h.cm * 0.65, title = g),
                   error = function(e) placeholder.ht(g, conditionMessage(e))), g)
           }
-        } else {  # score: one panel per selected pathway
-          for (pw in sig.pw) local({
-            pw. <- pw; cc. <- cc; g. <- g
-            title <- paste0(g., " — ", pw.)
-            if (!pw. %in% cc.@netP$pathways) {
-              add(placeholder.gg(g., paste0(pw., " absent")), title)
-            } else {
-              add(function() {
-                netAnalysis_signalingRole_network(
-                  cc., signaling = pw.,
-                  width = panel.w.cm * 0.6, height = panel.h.cm * 0.35, font.size = 10)
-              }, title)
-            }
-          })
-        }
+        } else local({  # score: one panel per group for the selected pathway
+          cc. <- cc; g. <- g
+          title <- paste0(g., " — ", score.pw)
+          if (!score.pw %in% cc.@netP$pathways) {
+            add(placeholder.gg(g., paste0(score.pw, " absent")), title)
+          } else {
+            add(function() {
+              netAnalysis_signalingRole_network(
+                cc., signaling = score.pw,
+                width = panel.w.cm * 0.6, height = panel.h.cm * 0.35, font.size = 10)
+            }, title)
+          }
+        })
       }
       plot.grid(items, ncol, titles = titles)
     }
