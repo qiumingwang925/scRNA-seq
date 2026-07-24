@@ -21,12 +21,11 @@ available in any order.
 Load the object and confirm it is in the expected shape.
 
 1. Open the **Upload Data** tab.
-2. Load an annotated `.rds` — the object [Module II](module-II.md) produced,
-   saved into `datasets/`.
+2. Load an annotated `.rds` — the object [Module II](module-II.md) produced. 
 3. Check the structure summary — cell counts, metadata columns, and assays.
 
-> 📷 **Screenshot:** 
-![Screenshot for uploading file](img/module-III/01-upload.png)
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-III/01-upload.png)
+
 **Result:** the seurat object is validated and shared with every visualization tab.
 
 ---
