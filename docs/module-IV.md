@@ -3,7 +3,7 @@
 Infer cell-cell communication with two parallel engines — **CellChat** and
 **LIANA** — over a single shared upload. Run either or both.
 
-**Tabs:** Upload → Run CellChat → Visualize CellChat → Run LIANA → Visualize LIANA
+**Tabs:** Upload → Run CellChat/LIANA → Visualize CellChat/LIANA 
 
 | | |
 |---|---|
