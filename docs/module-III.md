@@ -8,7 +8,7 @@ available in any order.
 
 | | |
 |---|---|
-| **Input** | Annotated Seurat `.rds` (Module II output). For testing, use `Demo_Module_III_control_vs_disease.rds`  |
+| **Input** | Annotated Seurat `.rds` (Module II output). For testing, use `Demo_Module_III_IV_(control_vs_disease).rds`  |
 | **Output** | Figures and tables (downloadable per tab) |
 
 > Every visualization tab downloads its figure with adjustable width and height. The Enrichment tab consumes the
