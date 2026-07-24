@@ -34,7 +34,7 @@ two ways to load — you only need one.
 6. Click **Convert**. The app builds the Seurat object and computes
    mitochondrial, ribosomal, and hemoglobin percentages automatically.
    
-> 📷 **Screenshot:** _Import tab showing the two load options_ — `img/module-I/01-import-mex.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/01-import-mex.png)
 
 **Option 2 — Processed Seurat object** (starting from processed data)
 
@@ -42,8 +42,7 @@ two ways to load — you only need one.
 2. Under *Option 2*, click **Browse...** to select a **Seurat Object (.rds)** file from your local computer. Any missing QC metrics are filled in on load.
 3. For testing, upload `Demo_Module_I_21401X3_Subset.rds`. 
 
-> 📷 **Screenshot:** _Import tab showing the two load options_ — `img/module-I/02-import-rds.png`
-
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/02-import-rds.png)
 **Result:** a summary of the loaded or converted Seurat object is displayed, including the total number of cells and the QC metrics saved in the object's 'meta.data': 'nFearure_RNA', 'nCount_RNA', 'percent.mt', 'percent.rp', and 'percent.hb'. The object is then ready for the next step.
 
 ---
@@ -61,7 +60,7 @@ Remove low-quality cells with adjustable thresholds and a live pass/fail preview
 8. Click **Plot** to visuliz **QC Matrix 1** and **QC Matrix 2** in **Plot Type** (**Scatter,Violin,Density** plots); Click **Update Selection** to re-color cells as pass/fail in real time.
 9. Click **Filter Low Quality Cells** to apply the filting thresholds for next step.
 
-> 📷 **Screenshot:** _QC tab showing threshold sliders and pass/fail scatter_ — `img/module-I/03-qc.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/03-qc.png)
 
 **Result:** the Seurat object is subset to cells passed QC; the retained cell number is updated in **QC Plot**.
 
@@ -80,7 +79,7 @@ Normalize the data and run PCA.
 - **Loading Plot**: Displays the genes that contribute most strongly to each PC. Check whether the top genes represent meaningful biological signals (e.g., identification biomarkers) rather than technical artifacts (e.g., mitochondrial, ribosomal, or cell-cycle genes, if not expected).
 - **Heatmap Plot**: Visualizes the expression patterns of the top genes across cells for each PC. Retain PCs that separate biologically distinct cell populations and show interpretable gene expression patterns.
 **Tips**:For most datasets, retaining approximately 20–30 PCs provides a reasonable starting point. The optimal number should be guided by the elbow plot and the biological relevance of the loading and heatmap plots.
-> 📷 **Screenshot:** _PCA tab with elbow plot after running PCA_ — `img/module-I/04-pca.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/04-pca.png)
 
 **Result:** Seurat Object adds a dimensionally-reduced PCA embeddings.
 
@@ -99,7 +98,7 @@ Note: These values are recommended starting points based on the assay chemistry.
 4. **Run doublet detection**
 5. Review the UMAP and scatter plot (nCounts_RNA vs nFeature_RNA) with singlets/doublets highlighted, then apply **Removal Doublets**.
 
-> 📷 **Screenshot:** _Doublet tab UMAP colored by singlet/doublet_ — `img/module-I/05-doublet.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/05-doublet.png)
 
 **Result:** Predicted doublets removed from the Seurat object.
 
@@ -113,7 +112,7 @@ Score each cell for cell-cycle phase (mouse gene sets).
 2. Click **Run Cell Cycle** and view the S and G2M phase scores on the UMAP.
 3. Optionally, click **Download Seurat Object** to save the data for cell annotation, as it may require additional time or multiple rounds of refinement.
 
-> 📷 **Screenshot:** _Cell Cycle tab UMAP colored by S and G2M phase scores_ — `img/module-I/06-cellcycle.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/06-cellcycle.png)
 
 **Result:** `S.Score`, `G2M.Score`, and `Phase` added to the meta.date of Seurat object.
 
@@ -138,7 +137,7 @@ Assign cell-type labels via SingleR (automatic) and/or manual annotation.
 - **Show closest data on hover**: display information for the data point nearest the cursor.
 - **Compare data on hover**: display information for all nearby data points at the cursor location.
 
-> 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/07-plotly.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/07-plotly.png)
 
 5. **Manual Annotation**
 - **Display UMAP from** shows the all cells and selected cells (after subset and re-clusring).
@@ -148,21 +147,21 @@ Assign cell-type labels via SingleR (automatic) and/or manual annotation.
 - **Differential Expression**: Click **Run DE Analysis** to identfy top genes/markers for the current selected cells vs the rest. View results under sub-tab DE AnAlysis
 - **Manual Annotation**: **Enter New Labels** to mark the current selected cells. Then click **Apply Label to Selection** to save the labels in `manual_annotation` of metadate.
 
-> 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/08-expression.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/08-expression.png)
 
-> 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/09-de.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/09-de.png)
 
 6. **SingleR Annotation**
 - **Upload Reference SCE (.rds)**: upload a SingleCellExperiment object saved as rds file as a reference.
 - **Label Name**: the name (e.g. SingleR_Reference) will be saved in Seurat Object metadata. 
 - Click **Run SingleR** to perform automated cell type annotation. Once finished, an **Annotation Summary** will be generated. The predicted cell type annotations can be visualizated under **Manual Annotation** (Color by Metadata).
 
-> 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/10-singler.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/10-singler.png)
 
-> 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/11-singler-vis.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/11-singler-vis.png)
 
 7. **Export Annotated Object**: Currently, only **Full object** is showed in **Preset**. The **Module II analysis-ready object** only need `RNA` under **Assays**, `counts` under **Layers** and **Metadata Column** (nCount_RNA, nFeature_RNA, S.Score, G2M.Score, percent.mt, manual_annotation). Also,**Set active identity to** `orig.ident`.
 
-> 📷 **Screenshot:** _Annotation tab with SingleR labels on the UMAP_ — `img/module-I/12-download.png`
+> 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/12-download.png)
 
 **Result:** `manual_annotation`and/or SingleR annotation labels add in the Seurat object metadata. Multiple versions of Seurat object can be downloaded as `.rds`.
