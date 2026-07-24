@@ -53,7 +53,8 @@ host folder the apps can see.
 | `Demo_Module_II_21401X3_control.rds` | **Module II** — samples to merge and integrate |
 | `Demo_Module_II_22713X2_disease.rds` | **Module II** — samples to merge and integrate |
 | `Demo_Module_II_24143X4_control.rds` | **Module II** — samples to merge and integrate |
-| `Demo_Module_III_IV_(control_vs_disease).rds` | **Module III** — data mining, figure and table generation ** Module IV** - CellChat and LIANA computation input|
+| `Demo_Module_III_IV_(control_vs_disease).rds` | **Module III** — data mining, figure and table generation 
+**Module IV** - CellChat and LIANA computation input|
 
 **Modules III and IV have no separate demo file** — both take the annotated
 object that Module II produces. Run Module II first and save its output to
