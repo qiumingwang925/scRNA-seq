@@ -7,8 +7,8 @@ Infer cell-cell communication with two parallel engines — **CellChat** and
 
 | | |
 |---|---|
-| **Input** | Annotated Seurat `.rds` (Module II output) |
-| **Output** | CellChat or LIANA result object (`.rds`) and  |
+| **Input** | Annotated Seurat `.rds` (Module II output). For testing, use `Demo_Module_III_IV_(control_vs_disease).rds` |
+| **Output** | CellChat or LIANA result object (`.rds`) and figures and tables |
 
 > The single upload feeds all four downstream tabs. Every visualization panel is
 > gated behind a **Generate Plot** button, so tweaking parameters queues up
