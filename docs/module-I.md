@@ -7,7 +7,7 @@ Seurat object, one pipeline step per tab.
 
 | | |
 |---|---|
-| **Input** | CellRanger processed MEX folder or seurat object saved in `.rds`. For testing, use `Demo_Module_I_MEX_21401X3`and `Demo_Module_I_21401X3_Subset.rds`  |
+| **Input** | CellRanger processed MEX folder (containing `barcodes.tsv.gz`, `features.tsv.gz`, `matrix.mtx.gz`) or seurat object saved in `.rds`. For testing, use `Demo_Module_I_MEX_21401X3`and `Demo_Module_I_21401X3_Subset.rds`  |
 | **Output** | Processed Seurat `.rds`, downloadable at `Cell Cycle Scoring` and `Annotation` steps |
 | **Next module** | [Module II](module-II.md) (integrate several of these objects) |
 
@@ -26,10 +26,8 @@ two ways to load — you only need one.
 **Option 1 — Cell Ranger MEX folder** (starting from raw data)
 
 1. Open the **Import** tab.
-2. Under *Option 1*, click **Select** and browse to a Cell Ranger MEX folder —
-   containing `barcodes.tsv.gz`, `features.tsv.gz`, `matrix.mtx.gz`.
-3. For testing, upload `Demo_Module_I_MEX_21401X3`folder. 
-4. The created sample ID will be saved in meta.data under **"orig.ident"** as converting to a Seurat Object.
+2. Click **Select** and browse to a Cell Ranger MEX folder.
+3. The created sample ID will be saved in meta.data under **"orig.ident"** as converting to a Seurat Object.
 5. Optionally, adjust the sample ID and the cell threshold (minimum number of cells expressing a gene for the gene to be retained) feature threshold (minimum number of detected genes for the cell to be retained).
 6. Click **Convert**. The app builds the Seurat object and computes
    mitochondrial, ribosomal, and hemoglobin percentages automatically.
@@ -40,7 +38,6 @@ two ways to load — you only need one.
 
 1. Open the **Import** tab.
 2. Under *Option 2*, click **Browse...** to select a **Seurat Object (.rds)** file from your local computer. Any missing QC metrics are filled in on load.
-3. For testing, upload `Demo_Module_I_21401X3_Subset.rds`. 
 
 > 📷 **Screenshot:** ![Screenshot for uploading file](img/module-I/02-import-rds.png)
 **Result:** a summary of the loaded or converted Seurat object is displayed, including the total number of cells and the QC metrics saved in the object's 'meta.data': 'nFearure_RNA', 'nCount_RNA', 'percent.mt', 'percent.rp', and 'percent.hb'. The object is then ready for the next step.
