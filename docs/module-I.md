@@ -7,7 +7,7 @@ Seurat object, one pipeline step per tab.
 
 | | |
 |---|---|
-| **Input** | CellRanger processed MEX folder or seurat object saved in `.rds`. For testing, use `scNexus_test_data/Demo_Module_I_MEX_21401X3`and `scNexus_test_data/Demo_Module_I_21401X3_Subset.rds`  |
+| **Input** | CellRanger processed MEX folder or seurat object saved in `.rds`. For testing, use `Demo_Module_I_MEX_21401X3`and `Demo_Module_I_21401X3_Subset.rds`  |
 | **Output** | Processed Seurat `.rds`, downloadable at `Cell Cycle Scoring` and `Annotation` steps |
 | **Next module** | [Module II](module-II.md) (integrate several of these objects) |
 
