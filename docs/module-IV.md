@@ -34,10 +34,11 @@ Load the object and choose the grouping used for cell-cell communication.
 
 ## Step 2 — Run CellChat
 
-Compute CellChat v2. 
+Compute cell-cell communication with CellChat v2. 
+
 1. Open the **Run CellChat** tab.
 2. Select **Species**.
-3. Select **Assay**
+3. Select **Assay** for data input.
 4. **Run CellChat Analysis** — CellChat is computed per group/conditon on the Secreted Signaling
    database, then merged across groups/conditions for cross-group comparison.
 5. **Download Result(`.rds`)** for the next step.
@@ -68,6 +69,12 @@ Explore the CellChat result across four subtabs.
 3. **Signaling-Focused** — outgoing/incoming signaling roles per group.
 4. **Communication Patterns** — including the manifold-learning embedding.
 
+Figure Control
+1. **Columns per row**: arrange for multiple panels
+2. **Width (inches)** and **Height (inches)**: for each panel
+3. **Generate Plot**: visualize the output
+4. **Download Figure**: apply **Columns per row**, **Width (inches)**, and **Height (inches)**
+
 > 📷 **Screenshot:**
 > ![Screenshot for uploading file](img/module-IV/04-cellchat-vis2.png)
 
@@ -77,13 +84,17 @@ Explore the CellChat result across four subtabs.
 
 ## Step 4 — Run LIANA
 
-Compute communication with the LIANA engine.
+Compute cell-cell communication with the LIANA.
 
 1. Open the **Run LIANA** tab.
-2. Run the per-group multi-method pipeline. Mouse ↔ human ortholog mapping is
-   applied automatically when the chosen resource is not `MouseConsensus`.
+2. Select **Species**.
+3. Select **Assay** for data input.
+4. Select **CCC resource** (only choice)
+5. Select **CCCmethods** (multiple choice)
+3. **Run LIANA Analysis** for per-group individual resource and multi-method pipeline. Mouse ↔ human ortholog mapping is applied automatically.
 
-> 📷 **Screenshot:** _LIANA compute tab after a run completes_ — `img/module-IV/04-liana-run.png`
+> 📷 **Screenshot:**
+> ![Screenshot for uploading file](img/module-IV/05-liana.png)
 
 **Result:** a LIANA result object, downloadable as `.rds`.
 
