@@ -23,6 +23,7 @@ Load the object and choose the grouping used for communication.
 1. Open the **Upload** tab.
 2. Click **Brower...** to load an annotated `.rds` — the object [Module II](module-II.md) produced.
 3. Pick the metadata column to use as **Condition / Group column** (`group`).
+4. Click **Confirm & Prepare Object** and alidate the information in the *Validation* tex box.
 
 > 📷 **Screenshot:** _Upload tab with grouping column selected_ — `img/module-IV/01-upload.png`
 
