@@ -91,12 +91,14 @@ Compute cell-cell communication with the LIANA.
 3. Select **Assay** for data input.
 4. Select **CCC resource** (only choice)
 5. Select **CCCmethods** (multiple choice)
-3. **Run LIANA Analysis** for per-group individual resource and multi-method pipeline. Mouse ↔ human ortholog mapping is applied automatically.
+6. **Run LIANA Analysis** for per-group individual resource and multi-method pipeline. Mouse ↔ human ortholog mapping is applied automatically.
+7. **Download Result(`.rds`)** for the next step.
 
 > 📷 **Screenshot:**
 > ![Screenshot for uploading file](img/module-IV/05-liana.png)
 
-**Result:** a LIANA result object, downloadable as `.rds`.
+**Result:** a LIANA result object, downloadable as `.rds`. (This step is
+computationally intensive. Running this step on a server or high-performance computing (HPC) environment is recommended for large datasets.)
 
 ---
 
