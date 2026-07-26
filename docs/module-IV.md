@@ -18,14 +18,15 @@ Infer cell-cell communication with two parallel engines — **CellChat** and
 
 ## Step 1 — Upload
 
-Load the object and choose the grouping used for communication.
+Load the object and choose the grouping used for cell-cell communication.
 
 1. Open the **Upload** tab.
 2. Click **Brower...** to load an annotated `.rds` — the object [Module II](module-II.md) produced.
 3. Pick the metadata column to use as **Condition / Group column** (`group`).
 4. Click **Confirm & Prepare Object** and alidate the information in the *Validation* tex box.
 
-> 📷 **Screenshot:** _Upload tab with grouping column selected_ — `img/module-IV/01-upload.png`
+> 📷 **Screenshot:** 
+> ![Screenshot for uploading file](img/module-IV/01-upload.png)
 
 **Result:** a validated, grouped object shared with all four downstream tabs.
 
@@ -33,32 +34,44 @@ Load the object and choose the grouping used for communication.
 
 ## Step 2 — Run CellChat
 
-Compute communication with the CellChat engine.
-
+Compute CellChat v2. 
 1. Open the **Run CellChat** tab.
-2. Run the pipeline — CellChat is computed per group on the Secreted Signaling
-   database, then merged across groups for cross-group comparison.
+2. Select **Species**.
+3. Select **Assay**
+4. **Run CellChat Analysis** — CellChat is computed per group/conditon on the Secreted Signaling
+   database, then merged across groups/conditions for cross-group comparison.
+5. **Download Result(`.rds`)** for the next step.
 
-> 📷 **Screenshot:** _CellChat compute tab after a run completes_ — `img/module-IV/02-cellchat-run.png`
+> 📷 **Screenshot:** 
+> ![Screenshot for uploading file](img/module-IV/02-cellchat.png)
 
 **Result:** a CellChat result object, downloadable as `.rds`. (This step is
-memory-hungry — give the app plenty of memory if it dies mid-run.)
+computationally intensive. Running this step on a server or high-performance computing (HPC) environment is recommended for large datasets.)
 
 ---
 
 ## Step 3 — Visualize CellChat
 
-Explore the CellChat result across four subtabs. Each panel renders on
-**Generate Plot**.
+Defind cell types for Analysis and visualization
+
+1. **Upload processed CellChat result (`.rds`) - skip if computed above**
+2. Select from **Cell types to include**
+
+> 📷 **Screenshot:**
+> ![Screenshot for uploading file](img/module-IV/03-cellchat-vis1.png)
+
+
+Explore the CellChat result across four subtabs.
 
 1. **Global Network** — overall interaction counts / strengths between groups.
 2. **Zoom-in** — a chosen signaling pathway or ligand-receptor pair.
 3. **Signaling-Focused** — outgoing/incoming signaling roles per group.
 4. **Communication Patterns** — including the manifold-learning embedding.
 
-> 📷 **Screenshot:** _CellChat global network circle plot_ — `img/module-IV/03-cellchat-vis.png`
+> 📷 **Screenshot:**
+> ![Screenshot for uploading file](img/module-IV/04-cellchat-vis2.png)
 
-**Result:** downloadable figures for each selected view.
+**Result:** downloadable figures for each selected view. More information about CellChat v2 and example figures can be found at [https://github.com/sqjin/CellChat] and [https://theislab.github.io/interaction-tools/14-CellChat.html#8_visualisation]
 
 ---
 
