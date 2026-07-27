@@ -1,5 +1,6 @@
-## ABOUTME: LIANA computation module. Splits the uploaded Seurat object by group,
-## ABOUTME: runs LIANA per group across selected methods, and aggregates the tibble.
+## ABOUTME: LIANA computation module. Splits the uploaded Seurat object by group and runs
+## ABOUTME: LIANA per group, storing one raw table per method. Nothing is aggregated here —
+## ABOUTME: liana_aggregate runs in the vis module over a user-chosen subset of methods.
 
 mod.interact.liana.comp.ui <- function(id) {
   ns <- NS(id)
@@ -93,7 +94,10 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
         step <- 1 / n
         liana.list <- list()
         conv.flag <- list()
-        method.succeeded <- list()
+        # Per requested method: NA when it produced a table, else the failure reason.
+        method.status <- list()
+        # Groups that never reached the method loop, keyed by group -> reason.
+        group.skipped <- list()
 
         for (i in seq_along(groups)) {
           g <- groups[i]
@@ -102,14 +106,14 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
           Idents(obj.sub) <- droplevels(Idents(obj.sub))
 
           if (ncol(obj.sub) < min.cells) {
-            showNotification(
-              paste0("Group '", g, "' has ", ncol(obj.sub), " cells (< min ",
-                     min.cells, "). Skipping."),
-              type = "warning", duration = NULL
-            )
+            reason <- paste0(ncol(obj.sub), " cells (< min ", min.cells, ")")
+            group.skipped[[g]] <- reason
+            showNotification(paste0("Group '", g, "' has ", reason, ". Skipping."),
+                             type = "warning", duration = NULL)
             next
           }
           if (length(levels(Idents(obj.sub))) < 2) {
+            group.skipped[[g]] <- "fewer than 2 cell-type idents"
             showNotification(
               paste0("Group '", g, "' has fewer than 2 cell-type idents. Skipping."),
               type = "warning", duration = NULL
@@ -132,7 +136,10 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
                 NULL
               }
             )
-            if (is.null(converted)) next
+            if (is.null(converted)) {
+              group.skipped[[g]] <- "mouse->human gene conversion failed"
+              next
+            }
             obj.sub <- converted$obj
           }
 
@@ -166,12 +173,16 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
             showNotification(msg, type = "error", duration = NULL)
             NULL
           })
-          if (is.null(sce)) next
+          if (is.null(sce)) {
+            group.skipped[[g]] <- "Seurat -> SCE conversion failed"
+            next
+          }
 
           # Run each method separately so one bad method doesn't collapse the group
           incProgress(step * 0.3, detail = paste0(
             "[", g, "] running LIANA (", length(methods), " methods)"))
           per.method <- list()
+          status <- setNames(rep(NA_character_, length(methods)), methods)
           for (m in methods) {
             tib <- tryCatch({
               result <- liana::liana_wrap(
@@ -187,12 +198,14 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
               result
             }, error = function(e) {
               message("[", g, "] method '", m, "' failed: ", e$message)
+              status[[m]] <<- conditionMessage(e)
               NULL
             })
             if (!is.null(tib)) per.method[[m]] <- tib
           }
 
           if (length(per.method) == 0) {
+            group.skipped[[g]] <- "no method succeeded"
             showNotification(
               paste0("No methods succeeded for group '", g, "'. Skipping."),
               type = "error", duration = NULL
@@ -200,31 +213,24 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
             next
           }
 
-          incProgress(step * 0.3, detail = paste0("[", g, "] aggregating"))
-          aggregated <- tryCatch(
-            liana::liana_aggregate(per.method),
-            error = function(e) {
-              message("[", g, "] liana_aggregate failed: ", e$message)
-              per.method[[1]]
-            }
-          )
-
           if (needs.conversion) {
-            incProgress(step * 0.2, detail = paste0("[", g, "] human->mouse gene remap"))
-            aggregated <- tryCatch(
-              convert.human.to.mouse.lr(aggregated, gene.conv.cache),
-              error = function(e) {
-                showNotification(paste("Reverse conversion failed for", g, ":",
-                                       e$message),
-                                 type = "warning")
-                aggregated
-              }
-            )
+            incProgress(step * 0.4, detail = paste0("[", g, "] human->mouse gene remap"))
+            per.method <- setNames(lapply(names(per.method), function(m) {
+              tryCatch(
+                convert.human.to.mouse.lr(per.method[[m]], gene.conv.cache),
+                error = function(e) {
+                  showNotification(paste0("Reverse conversion failed for ", g,
+                                          " / ", m, ": ", e$message),
+                                   type = "warning")
+                  per.method[[m]]
+                }
+              )
+            }), names(per.method))
           }
 
-          liana.list[[g]] <- aggregated
+          liana.list[[g]] <- per.method
           conv.flag[[g]] <- needs.conversion
-          method.succeeded[[g]] <- names(per.method)
+          method.status[[g]] <- status
         }
 
         if (length(liana.list) == 0) {
@@ -240,7 +246,8 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
           assay = assay.name,
           resource = resource,
           methods = methods,
-          method.succeeded = method.succeeded,
+          method.status = method.status,
+          group.skipped = group.skipped,
           converted = conv.flag
         )
       })
@@ -249,27 +256,56 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
     output$status.log <- renderPrint({
       res <- liana.result()
       req(res)
+      shared <- Reduce(intersect, lapply(res$liana.list, names))
+      partial <- setdiff(Reduce(union, lapply(res$liana.list, names)), shared)
+
       cat("--- LIANA run complete ---\n")
       cat("Species:           ", res$species, "\n")
       cat("Assay:             ", res$assay, "\n")
       cat("Resource:          ", res$resource, "\n")
       cat("Methods requested: ", paste(res$methods, collapse = ", "), "\n")
       cat("Groups completed:  ", paste(res$group.levels, collapse = ", "), "\n")
+      cat("Methods in every group:", paste(shared, collapse = ", "), "\n")
+      if (length(partial) > 0) {
+        cat("Methods missing from at least one group (not selectable downstream):",
+            paste(partial, collapse = ", "), "\n")
+      }
+      if (length(res$group.skipped) > 0) {
+        cat("\nGroups skipped:\n")
+        for (g in names(res$group.skipped)) {
+          cat("  ", g, ": ", res$group.skipped[[g]], "\n", sep = "")
+        }
+      }
+      failures <- unlist(lapply(res$group.levels, function(g) {
+        st <- res$method.status[[g]]
+        failed <- names(st)[!is.na(st)]
+        if (length(failed) == 0) return(NULL)
+        paste0("  ", g, " / ", failed, ": ", st[failed])
+      }))
+      if (length(failures) > 0) {
+        cat("\nMethod failures:\n")
+        cat(paste(failures, collapse = "\n"), "\n")
+      }
     })
 
     output$summary.table <- renderTable({
       res <- liana.result()
       req(res)
       do.call(rbind, lapply(res$group.levels, function(g) {
-        tib <- res$liana.list[[g]]
-        data.frame(
-          Group = g,
-          CellTypes = length(unique(c(tib$source, tib$target))),
-          Methods_Succeeded = length(res$method.succeeded[[g]]),
-          LR_Rows = nrow(tib),
-          Converted = if (isTRUE(res$converted[[g]])) "yes" else "no",
-          stringsAsFactors = FALSE
-        )
+        st <- res$method.status[[g]]
+        do.call(rbind, lapply(names(st), function(m) {
+          tib <- res$liana.list[[g]][[m]]
+          data.frame(
+            Group = g,
+            Method = m,
+            Status = if (is.null(tib)) "failed" else "ok",
+            CellTypes = if (is.null(tib)) NA_integer_
+                        else length(unique(c(tib$source, tib$target))),
+            LR_Rows = if (is.null(tib)) NA_integer_ else nrow(tib),
+            Converted = if (isTRUE(res$converted[[g]])) "yes" else "no",
+            stringsAsFactors = FALSE
+          )
+        }))
       }))
     })
 

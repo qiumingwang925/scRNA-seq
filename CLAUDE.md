@@ -109,8 +109,8 @@ A modular Shiny web application offering two parallel cell-cell communication en
 | Vis helpers | `mod_interact_vis_helpers.R` | Shared UI + render helpers — `plot.grid`, `resolve.sel`, `cell.type.selector.*`, `common.controls.ui`, `make.render.and.download`, typed placeholders. Sourced before both vis modules |
 | CellChat compute | `mod_interact_cellchat_comp.R` | Per-group CellChat pipeline on Secreted Signaling DB, followed by `mergeCellChat` for cross-group visualization |
 | CellChat vis | `mod_interact_cellchat_vis.R` | Four subtabs: Global Network, Zoom-in (pathway / L-R pair), Signaling-Focused, Communication Patterns (incl. Manifold via `computeNetSimilarityPairwise` + `netEmbedding`) |
-| LIANA compute | `mod_interact_liana_comp.R` | Per-group multi-method LIANA pipeline (`natmi`, `connectome`, `logfc`, `sca`, `cellphonedb`, `cytotalk`, `call_cellchat`) with lazy mouse ↔ human ortholog mapping when the chosen resource is not `MouseConsensus` |
-| LIANA vis | `mod_interact_liana_vis.R` | Three subtabs: CCC Dot Plot (single-group), CCC Freq Heatmap (N-group grid via `liana::heat_freq`), CCC Freq Chord Diagram (N-group grid via `liana::chord_freq`) |
+| LIANA compute | `mod_interact_liana_comp.R` | Per-group multi-method LIANA pipeline (`natmi`, `connectome`, `logfc`, `sca`, `cellphonedb`, `cytotalk`, `call_cellchat`) storing one raw table per method, with lazy mouse ↔ human ortholog mapping when the chosen resource is not `MouseConsensus` |
+| LIANA vis | `mod_interact_liana_vis.R` | Shared cell-type + method panel over four subtabs: CCC Table (raw method table, or `liana_aggregate` over a chosen subset), CCC Dot Plot (the table's group), CCC Freq Heatmap (N-group grid via `liana::heat_freq`), CCC Freq Chord Diagram (N-group grid via `liana::chord_freq`) |
 
 ### Architecture
 
@@ -131,7 +131,7 @@ A modular Shiny web application offering two parallel cell-cell communication en
 - **Core packages:** Seurat, DoubletFinder, ggplot2, plotly, tidyverse, glmGamPoi, shinyFiles, shinyjs, ggpubr, shinycssloaders
 - **Module II additional packages:** SeuratWrappers, SeuratObject, presto, cluster, lisi, Matrix, batchelor (FastMNN backend)
 - **Module III additional packages:** enrichR, openxlsx
-- **Module IV additional packages:** CellChat (jinworks/CellChat), ComplexHeatmap, NMF, ggalluvial, ggplotify, future, liana (saezlab/liana), OmnipathR, biomaRt, entropy, digest
+- **Module IV additional packages:** CellChat (jinworks/CellChat), ComplexHeatmap, NMF, ggalluvial, ggplotify, future, liana (saezlab/liana), OmnipathR, biomaRt, entropy, digest, DT
 
 ## Naming Conventions
 

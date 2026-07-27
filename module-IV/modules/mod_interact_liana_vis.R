@@ -1,22 +1,76 @@
-## ABOUTME: LIANA visualization module. Three subtabs — Dot Plot, Freq Heatmap,
-## ABOUTME: Freq Chord Diagram. Dot Plot is single-group; the other two are N-group grids.
+## ABOUTME: LIANA visualization module. A shared cell-type + method panel feeds four subtabs —
+## ABOUTME: CCC Table (one raw method table, or liana_aggregate over a chosen subset), Dot Plot,
+## ABOUTME: Freq Heatmap, Freq Chord Diagram. The table is the source of truth for the plots.
 
-# LIANA method <-> score column map for the Dot Plot size / colour selectors.
-# Keys are human-readable labels; values describe how to pull the value out of
-# the aggregated LIANA tibble.
-.liana.score.map <- list(
-  "Interaction Specificity (NATMI)"  = list(col = "natmi.edge_specificity",
-                                             label = "Interaction\nSpecificity"),
-  "Interaction Weight (Connectome)"  = list(col = "connectome.weight_sc",
-                                             label = "Interaction\nWeight"),
-  "LogFC Mean (iTALK-style)"         = list(col = "logfc.logfc_comb",
-                                             label = "LogFC\nMean"),
-  "Expression Magnitude (SCSignalR)" = list(col = "sca.LRscore",
-                                             label = "Expression\nMagnitude"),
-  "P-value (CellPhoneDB)"            = list(col = "cellphonedb.pvalue",
-                                             label = "-log10(p)")
-)
-.liana.score.labels <- names(.liana.score.map)
+# liana_aggregate only has rank specs for these five. cytotalk and call_cellchat return a
+# much smaller row support, so including them silently collapses the aggregate onto their
+# interactions instead of raising — hence the hard block rather than a warning.
+.liana.aggregatable <- c("connectome", "logfc", "natmi", "sca", "cellphonedb")
+
+# Identity columns — never offered as a score, cutoff, or ranking metric.
+.liana.id.cols <- c("source", "target",
+                    "ligand", "ligand.complex",
+                    "receptor", "receptor.complex")
+
+# Columns where a *small* value means a stronger interaction. Drives the default cutoff
+# direction, the top-N sort order, and the -log10 inversion in the dot plot.
+.liana.is.pval.col <- function(cols) grepl("aggregate_rank|pvalue|padj|pval", cols)
+
+.liana.score.cols <- function(tib) {
+  numeric.cols <- names(tib)[vapply(tib, is.numeric, logical(1))]
+  setdiff(numeric.cols, .liana.id.cols)
+}
+
+# First preference present in cols, else the fallback.index-th column.
+.liana.pick.col <- function(cols, prefs, fallback.index = 1) {
+  hit <- prefs[prefs %in% cols]
+  if (length(hit) > 0) return(hit[1])
+  if (length(cols) == 0) return(NULL)
+  cols[min(fallback.index, length(cols))]
+}
+
+# liana_dotplot draws one row per ligand-receptor pair, so "top N" counts distinct pairs
+# rather than table rows: rank the table, then keep every row belonging to the first N
+# pairs so each pair keeps all of its source -> target combinations.
+.liana.top.pairs <- function(tib, rank.col, n) {
+  ordered <- tib[order(tib[[rank.col]],
+                       decreasing = !.liana.is.pval.col(rank.col),
+                       na.last = NA), ]
+  pair.cols <- intersect(c("ligand.complex", "receptor.complex"), names(ordered))
+  if (length(pair.cols) < 2) {
+    pair.cols <- intersect(c("ligand", "receptor"), names(ordered))
+  }
+  if (length(pair.cols) < 2) return(utils::head(ordered, n))
+  key <- do.call(paste, c(ordered[pair.cols], sep = "|"))
+  ordered[key %in% utils::head(unique(key), n), ]
+}
+
+# Returns the filtered table, or a character message explaining why it could not filter.
+.liana.apply.cutoff <- function(tib, col, op, value) {
+  if (is.null(col) || !nzchar(col)) return("choose a cutoff column")
+  if (!col %in% names(tib)) {
+    return(paste0("cutoff column '", col, "' absent in this group"))
+  }
+  if (is.null(value) || is.na(value)) return("enter a cutoff value")
+  x <- tib[[col]]
+  keep <- switch(op, gt = x > value, ge = x >= value,
+                     lt = x < value, le = x <= value)
+  if (is.null(keep)) return("unknown cutoff operator")
+  tib[!is.na(keep) & keep, ]
+}
+
+liana.cutoff.controls.ui <- function(ns, prefix) {
+  tagList(
+    selectInput(ns(paste0(prefix, ".cutoff.col")), "Cutoff column:", choices = NULL),
+    selectInput(ns(paste0(prefix, ".cutoff.op")), "Cutoff:",
+                choices = c("greater than" = "gt",
+                            "greater than or equal to" = "ge",
+                            "less than" = "lt",
+                            "less than or equal to" = "le"),
+                selected = "le"),
+    numericInput(ns(paste0(prefix, ".cutoff.val")), NULL, value = 0.01)
+  )
+}
 
 mod.interact.liana.vis.ui <- function(id) {
   ns <- NS(id)
@@ -27,29 +81,71 @@ mod.interact.liana.vis.ui <- function(id) {
           fileInput(ns("vis.file"),
                     "Upload processed LIANA result (.rds) — skip if computed above:",
                     accept = ".rds"),
-          verbatimTextOutput(ns("input.summary"))
+          verbatimTextOutput(ns("input.summary")),
+          hr(),
+          h5("Applies to every tab below"),
+          fluidRow(
+            column(6,
+              cell.type.selector.ui(ns, "subset.idents", "Cell types to include:")
+            ),
+            column(6,
+              selectInput(ns("methods"), "Method(s):", choices = NULL, multiple = TRUE),
+              helpText("One method shows its raw table. Two or more of ",
+                       paste(.liana.aggregatable, collapse = ", "),
+                       " are combined with liana_aggregate.",
+                       "cytotalk and call_cellchat can only be viewed on their own."),
+              uiOutput(ns("method.msg"))
+            )
+          )
         )
       )
     ),
 
     tabsetPanel(id = ns("liana.vis.tabs"),
 
-      # ---------- Subtab 1: CCC Dot Plot (single-group) ----------
+      # ---------- Subtab 1: CCC Table ----------
+      tabPanel("CCC Table",
+        sidebarLayout(
+          sidebarPanel(width = 3,
+            h4("CCC Table"),
+            selectInput(ns("table.group"), "Group:", choices = NULL),
+            helpText("This group also drives the CCC Dot Plot. Rows selected here",
+                     "can be plotted directly."),
+            hr(),
+            downloadButton(ns("table.download"), "Download Table (.csv)",
+                           style = "width:100%")
+          ),
+          mainPanel(width = 9,
+            verbatimTextOutput(ns("table.caption")),
+            DT::DTOutput(ns("ccc.table"))
+          )
+        )
+      ),
+
+      # ---------- Subtab 2: CCC Dot Plot (the table's group) ----------
       tabPanel("CCC Dot Plot",
         sidebarLayout(
           sidebarPanel(width = 3,
             h4("CCC Dot Plot"),
-            selectInput(ns("dot.group"), "Group:", choices = NULL),
-            cell.type.selector.ui(ns, "dot.sources", "Source populations:"),
-            cell.type.selector.ui(ns, "dot.targets", "Target populations:"),
-            numericInput(ns("dot.top"), "Top N L-R pairs:",
-                         value = 15, min = 1, max = 200, step = 1),
-            selectInput(ns("dot.size"), "Dot size:",
-                        choices = .liana.score.labels,
-                        selected = "Interaction Specificity (NATMI)"),
-            selectInput(ns("dot.col"), "Dot colour:",
-                        choices = .liana.score.labels,
-                        selected = "Expression Magnitude (SCSignalR)"),
+            radioButtons(ns("dot.rows"), "L-R pairs:",
+                         choices = c("Top N" = "top",
+                                     "Selected in CCC Table" = "selected"),
+                         selected = "top"),
+            conditionalPanel(
+              condition = sprintf("input['%s'] == 'top'", ns("dot.rows")),
+              numericInput(ns("dot.top"), "Top N L-R pairs:",
+                           value = 15, min = 1, max = 200, step = 1),
+              selectInput(ns("dot.rank"), "Rank by:", choices = NULL),
+              cell.type.selector.ui(ns, "dot.sources", "Source populations:"),
+              cell.type.selector.ui(ns, "dot.targets", "Target populations:")
+            ),
+            conditionalPanel(
+              condition = sprintf("input['%s'] == 'selected'", ns("dot.rows")),
+              helpText("Every source -> target combination present in the selected",
+                       "rows is drawn; the population filters above do not apply.")
+            ),
+            selectInput(ns("dot.size"), "Dot size:", choices = NULL),
+            selectInput(ns("dot.col"), "Dot colour:", choices = NULL),
             common.controls.ui(ns, "dot", default.cols = 1)
           ),
           mainPanel(width = 9,
@@ -58,15 +154,13 @@ mod.interact.liana.vis.ui <- function(id) {
         )
       ),
 
-      # ---------- Subtab 2: CCC Freq Heatmap (N-group grid) ----------
+      # ---------- Subtab 3: CCC Freq Heatmap (N-group grid) ----------
       tabPanel("CCC Freq Heatmap",
         sidebarLayout(
           sidebarPanel(width = 3,
             h4("CCC Freq Heatmap"),
-            cell.type.selector.ui(ns, "heat.idents", "Populations (source & target):"),
-            numericInput(ns("heat.alpha"), "aggregate_rank cutoff:",
-                         value = 0.01, min = 0, max = 1, step = 0.005),
-            common.controls.ui(ns, "heat", default.cols = 2)
+            liana.cutoff.controls.ui(ns, "heat"),
+            common.controls.ui(ns, "heat", default.cols = 1)
           ),
           mainPanel(width = 9,
             uiOutput(ns("heat.plot.ui"))
@@ -74,16 +168,15 @@ mod.interact.liana.vis.ui <- function(id) {
         )
       ),
 
-      # ---------- Subtab 3: CCC Freq Chord Diagram (N-group grid) ----------
+      # ---------- Subtab 4: CCC Freq Chord Diagram (N-group grid) ----------
       tabPanel("CCC Freq Chord Diagram",
         sidebarLayout(
           sidebarPanel(width = 3,
             h4("CCC Freq Chord Diagram"),
             cell.type.selector.ui(ns, "chord.sources", "Source populations:"),
             cell.type.selector.ui(ns, "chord.targets", "Target populations:"),
-            numericInput(ns("chord.alpha"), "aggregate_rank cutoff:",
-                         value = 0.01, min = 0, max = 1, step = 0.005),
-            common.controls.ui(ns, "chord", default.cols = 2)
+            liana.cutoff.controls.ui(ns, "chord"),
+            common.controls.ui(ns, "chord", default.cols = 1)
           ),
           mainPanel(width = 9,
             uiOutput(ns("chord.plot.ui"))
@@ -115,6 +208,14 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
                            type = "error", duration = NULL)
           return(NULL)
         }
+        if (inherits(r$liana.list[[1]], "data.frame")) {
+          showNotification(
+            paste("This file holds one pre-aggregated table per group, the format",
+                  "produced before the per-method rewrite. Re-run the LIANA compute",
+                  "tab to produce a result with one table per method."),
+            type = "error", duration = NULL)
+          return(NULL)
+        }
         r
       }, error = function(e) {
         showNotification(paste("Error loading file:", e$message),
@@ -131,43 +232,283 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       cat("Species:  ", res$species %||% "unknown", "\n")
       cat("Assay:    ", res$assay %||% "unknown", "\n")
       cat("Resource: ", res$resource %||% "unknown", "\n")
-      cat("Methods:  ", paste(res$methods, collapse = ", "), "\n")
-      cat("Rows per group:\n")
+      cat("Methods per group:\n")
       for (g in res$group.levels) {
-        cat("  ", g, ": ", nrow(res$liana.list[[g]]), "\n", sep = "")
+        per.method <- res$liana.list[[g]]
+        cat("  ", g, ": ",
+            paste0(names(per.method), " (",
+                   vapply(per.method, nrow, integer(1)), " rows)",
+                   collapse = ", "),
+            "\n", sep = "")
       }
     })
 
-    # Shared choice reactives — union of source + target cell types across groups
+    # ---------- Shared selections ----------
+
     ident.choices <- reactive({
       res <- liana.data(); req(res)
-      all <- Reduce(union, lapply(res$liana.list, function(tib) {
-        unique(c(tib$source, tib$target))
+      all <- Reduce(union, lapply(res$liana.list, function(per.method) {
+        Reduce(union, lapply(per.method, function(tib) {
+          unique(c(tib$source, tib$target))
+        }))
       }))
       sort(all[!is.na(all) & nzchar(all)])
     })
 
-    group.choices <- reactive({
+    # Kept cell types in ident.choices() order rather than click order.
+    subset.universe <- reactive({
+      all.idents <- ident.choices()
+      req(all.idents)
+      intersect(all.idents, input$subset.idents %||% all.idents)
+    })
+
+    # Only methods that succeeded in *every* group are selectable: aggregating over
+    # different method sets per group would make the resulting ranks incomparable
+    # across conditions, which is the whole point of the N-panel grids.
+    method.choices <- reactive({
       res <- liana.data(); req(res)
-      res$group.levels
+      Reduce(intersect, lapply(res$liana.list, names))
     })
 
-    # Populate dot-plot group dropdown
+    method.partial <- reactive({
+      res <- liana.data(); req(res)
+      setdiff(Reduce(union, lapply(res$liana.list, names)), method.choices())
+    })
+
     observe({
-      grps <- group.choices()
-      req(grps)
-      updateSelectInput(session, "dot.group",
-                        choices = grps,
-                        selected = grps[1])
+      methods <- method.choices()
+      req(length(methods) > 0)
+      default <- intersect(methods, .liana.aggregatable)
+      if (length(default) < 2) default <- methods[1]
+      updateSelectInput(session, "methods", choices = methods, selected = default)
     })
 
-    wire.cell.type.selector(input, session, "dot.sources",  ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "dot.targets",  ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "heat.idents",  ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "chord.sources", ident.choices, selected.all = TRUE)
-    wire.cell.type.selector(input, session, "chord.targets", ident.choices, selected.all = TRUE)
+    observe({
+      grps <- liana.data()$group.levels
+      req(grps)
+      updateSelectInput(session, "table.group", choices = grps, selected = grps[1])
+    })
 
-    # Auto-size plot output for each subtab
+    wire.cell.type.selector(input, session, "subset.idents", ident.choices,
+                            selected.all = TRUE)
+    wire.cell.type.selector(input, session, "dot.sources", subset.universe,
+                            selected.all = TRUE)
+    wire.cell.type.selector(input, session, "dot.targets", subset.universe,
+                            selected.all = TRUE)
+    wire.cell.type.selector(input, session, "chord.sources", subset.universe,
+                            selected.all = TRUE)
+    wire.cell.type.selector(input, session, "chord.targets", subset.universe,
+                            selected.all = TRUE)
+
+    method.mode <- reactive({
+      sel <- input$methods
+      if (is.null(sel) || length(sel) == 0) {
+        return(list(ok = FALSE, aggregate = FALSE,
+                    msg = "Select at least one method in the panel above."))
+      }
+      if (length(sel) == 1) {
+        return(list(ok = TRUE, aggregate = FALSE, msg = NULL))
+      }
+      blocked <- setdiff(sel, .liana.aggregatable)
+      if (length(blocked) > 0) {
+        return(list(ok = FALSE, aggregate = FALSE, msg = paste0(
+          "Cannot aggregate ", paste(blocked, collapse = " and "), ". ",
+          "liana_aggregate only supports ",
+          paste(.liana.aggregatable, collapse = ", "),
+          " — select ", paste(blocked, collapse = " or "),
+          " on its own to see its raw table, or remove it from the selection.")))
+      }
+      list(ok = TRUE, aggregate = TRUE, msg = NULL)
+    })
+
+    output$method.msg <- renderUI({
+      mode <- method.mode()
+      partial <- method.partial()
+      tagList(
+        if (!is.null(mode$msg)) tags$p(class = "text-danger", mode$msg),
+        if (length(partial) > 0) tags$p(class = "text-warning", paste0(
+          "Not selectable — succeeded in some groups only: ",
+          paste(partial, collapse = ", "), "."))
+      )
+    })
+
+    # ---------- Table construction ----------
+
+    # liana_aggregate over the full group table is expensive enough to be worth
+    # keeping, and cheap enough to run on demand. Keyed by group + method set.
+    agg.cache <- new.env(parent = emptyenv())
+    observeEvent(liana.data(), {
+      rm(list = ls(envir = agg.cache), envir = agg.cache)
+    }, ignoreNULL = TRUE)
+
+    # Raw or aggregated table for one group, before the cell-type filter.
+    # Returns a character message instead of a table when it cannot be built.
+    group.table <- function(g) {
+      res <- liana.data()
+      mode <- method.mode()
+      sel <- input$methods
+      per.method <- res$liana.list[[g]]
+      if (is.null(per.method)) return(paste0("no result for group '", g, "'"))
+      missing <- setdiff(sel, names(per.method))
+      if (length(missing) > 0) {
+        return(paste0("method(s) absent in this group: ",
+                      paste(missing, collapse = ", ")))
+      }
+      if (!mode$aggregate) return(per.method[[sel]])
+
+      key <- paste(c(g, sort(sel)), collapse = "|")
+      if (!exists(key, envir = agg.cache)) {
+        aggregated <- withProgress(
+          message = paste("Aggregating", length(sel), "methods for", g),
+          value = 0.5,
+          tryCatch(liana::liana_aggregate(per.method[sort(sel)]),
+                   error = function(e) paste("liana_aggregate failed:",
+                                             conditionMessage(e)))
+        )
+        assign(key, aggregated, envir = agg.cache)
+      }
+      get(key, envir = agg.cache)
+    }
+
+    # Aggregation runs on the full group table so that ranks do not shift when the
+    # cell-type selection changes; the filter is applied to the rows afterwards.
+    table.for.group <- function(g) {
+      tib <- group.table(g)
+      if (is.character(tib)) return(tib)
+      keep <- subset.universe()
+      if (setequal(keep, ident.choices())) return(tib)
+      tib[tib$source %in% keep & tib$target %in% keep, ]
+    }
+
+    active.table <- reactive({
+      req(input$table.group)
+      table.for.group(input$table.group)
+    })
+
+    selected.rows <- reactive({
+      tib <- active.table()
+      idx <- input$ccc.table_rows_selected
+      if (is.character(tib) || is.null(idx) || length(idx) == 0) return(NULL)
+      # Indices can outlive the table they were picked from for one reactive beat
+      # after the cell-type filter changes and before DT reports the cleared selection.
+      idx <- idx[idx <= nrow(tib)]
+      if (length(idx) == 0) return(NULL)
+      tib[idx, ]
+    })
+
+    # ---------- Score column selectors ----------
+
+    score.choices <- reactive({
+      tib <- active.table()
+      if (is.character(tib)) return(character(0))
+      .liana.score.cols(tib)
+    })
+
+    # Only push new choices when the column set actually changes, so that toggling a
+    # cell type (which re-runs active.table) does not reset the user's metric picks.
+    applied.score.cols <- reactiveVal(NULL)
+    observe({
+      cols <- score.choices()
+      req(length(cols) > 0)
+      if (identical(cols, applied.score.cols())) return()
+      applied.score.cols(cols)
+
+      size.default <- .liana.pick.col(cols, c("natmi.edge_specificity",
+                                              "edge_specificity",
+                                              "connectome.weight_sc", "weight_sc"), 1)
+      colour.default <- .liana.pick.col(cols, c("sca.LRscore", "LRscore",
+                                                "natmi.expr_prod", "expr_prod",
+                                                "cellphonedb.lr.mean", "lr.mean"), 2)
+      rank.default <- .liana.pick.col(cols, c("aggregate_rank", size.default), 1)
+
+      updateSelectInput(session, "dot.size", choices = cols, selected = size.default)
+      updateSelectInput(session, "dot.col", choices = cols, selected = colour.default)
+      updateSelectInput(session, "dot.rank", choices = cols, selected = rank.default)
+      updateSelectInput(session, "heat.cutoff.col", choices = cols,
+                        selected = rank.default)
+      updateSelectInput(session, "chord.cutoff.col", choices = cols,
+                        selected = rank.default)
+    })
+
+    # Score columns span orders of magnitude between methods, so there is no sane
+    # fixed default: seed the value from the column's own distribution and let the
+    # user override it.
+    seed.cutoff <- function(prefix) {
+      observeEvent(input[[paste0(prefix, ".cutoff.col")]], {
+        col <- input[[paste0(prefix, ".cutoff.col")]]
+        tib <- active.table()
+        req(!is.character(tib), col %in% names(tib))
+        x <- tib[[col]]
+        x <- x[is.finite(x)]
+        req(length(x) > 0)
+        if (.liana.is.pval.col(col)) {
+          op <- "le"
+          value <- if (col == "aggregate_rank") 0.01
+                   else signif(stats::quantile(x, 0.1, names = FALSE), 3)
+        } else {
+          op <- "ge"
+          value <- signif(stats::quantile(x, 0.9, names = FALSE), 3)
+        }
+        updateSelectInput(session, paste0(prefix, ".cutoff.op"), selected = op)
+        updateNumericInput(session, paste0(prefix, ".cutoff.val"), value = value)
+      })
+    }
+    seed.cutoff("heat")
+    seed.cutoff("chord")
+
+    # ---------- CCC Table ----------
+
+    output$table.caption <- renderPrint({
+      mode <- method.mode()
+      validate(need(mode$ok, mode$msg))
+      tib <- active.table()
+      validate(need(!is.character(tib), tib))
+      cat("Group:    ", input$table.group, "\n")
+      cat("Table:    ",
+          if (mode$aggregate) paste0("liana_aggregate of ",
+                                     paste(sort(input$methods), collapse = ", "))
+          else paste0(input$methods, " (raw)"), "\n")
+      cat("Rows:     ", nrow(tib), " (after the cell-type filter)\n", sep = "")
+      cat("Selected: ", length(input$ccc.table_rows_selected %||% integer(0)), "\n")
+    })
+
+    output$ccc.table <- DT::renderDT({
+      mode <- method.mode()
+      validate(need(mode$ok, mode$msg))
+      tib <- active.table()
+      validate(need(!is.character(tib), tib))
+      validate(need(nrow(tib) > 0, "No rows left after the cell-type filter."))
+
+      df <- as.data.frame(tib)
+      numeric.cols <- names(df)[vapply(df, is.numeric, logical(1))]
+      dt <- DT::datatable(
+        df, rownames = FALSE, filter = "top", selection = "multiple",
+        options = list(pageLength = 25, scrollX = TRUE, searchDelay = 500)
+      )
+      if (length(numeric.cols) > 0) {
+        dt <- DT::formatSignif(dt, columns = numeric.cols, digits = 3)
+      }
+      dt
+    })
+
+    output$table.download <- downloadHandler(
+      filename = function() {
+        mode <- method.mode()
+        tag <- if (isTRUE(mode$aggregate)) "aggregated"
+               else paste(input$methods, collapse = "_")
+        paste0("liana_table_",
+               gsub("[^A-Za-z0-9]", "_", input$table.group %||% ""), "_",
+               tag, "_", Sys.Date(), ".csv")
+      },
+      content = function(file) {
+        tib <- active.table()
+        validate(need(!is.character(tib), tib))
+        write.csv(as.data.frame(tib), file, row.names = FALSE)
+      }
+    )
+
+    # ---------- Plot outputs ----------
+
     plot.output <- function(prefix) {
       renderUI({
         w <- input[[paste0(prefix, ".width")]]
@@ -186,50 +527,66 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
     output$heat.plot.ui  <- plot.output("heat")
     output$chord.plot.ui <- plot.output("chord")
 
-    # ---------- Subtab thunks (Phase 5/6 will implement) ----------
-
     dot.thunk <- function() {
-      res <- liana.data(); req(res, input$dot.group, input$dot.size, input$dot.col)
-      g <- input$dot.group
-      tib <- res$liana.list[[g]]
-      req(tib)
-
-      size.info <- .liana.score.map[[input$dot.size]]
-      col.info  <- .liana.score.map[[input$dot.col]]
-      req(size.info, col.info)
-
+      mode <- method.mode()
+      validate(need(mode$ok, mode$msg))
+      g <- input$table.group
+      req(g)
+      tib <- active.table()
+      validate(need(!is.character(tib), tib))
+      validate(need(nrow(tib) > 0, "No rows left after the cell-type filter."))
       validate(
-        need(size.info$col %in% colnames(tib),
-             paste0("Size metric '", input$dot.size, "' (column '", size.info$col,
-                    "') is not in the result. Rerun LIANA including the relevant method.")),
-        need(col.info$col %in% colnames(tib),
-             paste0("Colour metric '", input$dot.col, "' (column '", col.info$col,
-                    "') is not in the result. Rerun LIANA including the relevant method."))
+        need(input$dot.size %in% names(tib), "Choose a dot size column."),
+        need(input$dot.col %in% names(tib), "Choose a dot colour column.")
       )
 
-      tib.idents <- unique(c(tib$source, tib$target))
-      all.idents <- ident.choices()
-      s <- resolve.sel(tib.idents, input$dot.sources, all.idents)
-      t <- resolve.sel(tib.idents, input$dot.targets, all.idents)
-      validate(
-        need(!s$empty, paste0("Selected source(s) not present in '", g, "'.")),
-        need(!t$empty, paste0("Selected target(s) not present in '", g, "'."))
-      )
+      if (identical(input$dot.rows, "selected")) {
+        tib.plot <- selected.rows()
+        validate(need(!is.null(tib.plot) && nrow(tib.plot) > 0,
+                      "No rows are selected in the CCC Table."))
+        source.use <- NULL
+        target.use <- NULL
+      } else {
+        validate(need(input$dot.rank %in% names(tib), "Choose a ranking column."))
+        tib.idents <- unique(c(tib$source, tib$target))
+        all.idents <- subset.universe()
+        s <- resolve.sel(tib.idents, input$dot.sources, all.idents)
+        t <- resolve.sel(tib.idents, input$dot.targets, all.idents)
+        validate(
+          need(!s$empty, paste0("Selected source(s) not present in '", g, "'.")),
+          need(!t$empty, paste0("Selected target(s) not present in '", g, "'."))
+        )
+        source.use <- if (s$active) s$use else NULL
+        target.use <- if (t$active) t$use else NULL
+        # Rank within the selected populations, so "top 15" means the top pairs of
+        # the interactions actually drawn rather than of the whole group.
+        if (!is.null(source.use)) tib <- tib[tib$source %in% source.use, ]
+        if (!is.null(target.use)) tib <- tib[tib$target %in% target.use, ]
+        validate(need(nrow(tib) > 0,
+                      "No interactions between the selected populations."))
+        tib.plot <- .liana.top.pairs(tib, input$dot.rank, input$dot.top)
+        validate(need(nrow(tib.plot) > 0,
+                      paste0("No rows have a value for '", input$dot.rank, "'.")))
+      }
 
-      size.is.pval <- grepl("pvalue", size.info$col)
-      col.is.pval  <- grepl("pvalue", col.info$col)
+      size.is.pval <- .liana.is.pval.col(input$dot.size)
+      col.is.pval  <- .liana.is.pval.col(input$dot.col)
+      size.label <- if (size.is.pval) paste0("-log10(", input$dot.size, ")")
+                    else input$dot.size
+      colour.label <- if (col.is.pval) paste0("-log10(", input$dot.col, ")")
+                      else input$dot.col
 
       p <- tryCatch(
         liana::liana_dotplot(
-          tib,
-          source_groups = if (s$active) s$use else NULL,
-          target_groups = if (t$active) t$use else NULL,
-          ntop = input$dot.top,
-          specificity = size.info$col,
-          magnitude = col.info$col,
+          tib.plot,
+          source_groups = source.use,
+          target_groups = target.use,
+          ntop = NULL,
+          specificity = input$dot.size,
+          magnitude = input$dot.col,
           y.label = "Interactions (Ligand -> Receptor)",
-          size.label = size.info$label,
-          colour.label = col.info$label,
+          size.label = size.label,
+          colour.label = colour.label,
           show_complex = TRUE,
           size_range = c(2, 10),
           invert_specificity = size.is.pval,
@@ -247,37 +604,32 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       print(p)
     }
 
+    # Both grids apply the same method selection to every group, so the panels stay
+    # comparable; only the cutoff and the cell-type filter vary with the controls.
     heat.thunk <- function() {
+      mode <- method.mode()
+      validate(need(mode$ok, mode$msg))
       res <- liana.data(); req(res)
       grps <- res$group.levels
-      ncol <- input$heat.cols %||% 2
-      all.idents <- ident.choices()
-      sel <- input$heat.idents
-      alpha <- input$heat.alpha %||% 0.01
+      ncol <- input$heat.cols %||% 1
 
       items <- lapply(grps, function(g) {
         force(g)
-        tib <- res$liana.list[[g]]
-        if (!"aggregate_rank" %in% colnames(tib)) {
-          return(function() placeholder.base(g,
-            "aggregate_rank absent — rerun with >=2 methods"))
+        tib <- table.for.group(g)
+        if (is.character(tib)) return(function() placeholder.base(g, tib))
+        if (nrow(tib) == 0) {
+          return(function() placeholder.base(g, "no rows after the cell-type filter"))
         }
-        tib.idents <- unique(c(tib$source, tib$target))
-        s <- resolve.sel(tib.idents, sel, all.idents)
-        if (s$empty) {
-          return(function() placeholder.base(g, "populations absent"))
+        filtered <- .liana.apply.cutoff(tib, input$heat.cutoff.col,
+                                        input$heat.cutoff.op, input$heat.cutoff.val)
+        if (is.character(filtered)) {
+          return(function() placeholder.base(g, filtered))
         }
-        ids <- if (s$active) s$use else tib.idents
-        filtered <- tib[tib$aggregate_rank <= alpha &
-                          tib$source %in% ids &
-                          tib$target %in% ids, ]
         if (nrow(filtered) == 0) {
-          return(function() placeholder.base(g,
-            paste0("no rows passed aggregate_rank <= ", alpha)))
+          return(function() placeholder.base(g, "no rows passed the cutoff"))
         }
         function() {
-          ht <- tryCatch(liana::heat_freq(filtered),
-                         error = function(e) NULL)
+          ht <- tryCatch(liana::heat_freq(filtered), error = function(e) NULL)
           if (is.null(ht)) {
             placeholder.base(g, "heat_freq failed")
             return(invisible())
@@ -289,33 +641,38 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
     }
 
     chord.thunk <- function() {
+      mode <- method.mode()
+      validate(need(mode$ok, mode$msg))
       res <- liana.data(); req(res)
       grps <- res$group.levels
-      ncol <- input$chord.cols %||% 2
-      all.idents <- ident.choices()
+      ncol <- input$chord.cols %||% 1
+      all.idents <- subset.universe()
       srcs <- input$chord.sources
       tgts <- input$chord.targets
-      alpha <- input$chord.alpha %||% 0.01
 
       items <- lapply(grps, function(g) {
         force(g)
-        tib <- res$liana.list[[g]]
-        tib.idents <- unique(c(tib$source, tib$target))
-        s <- resolve.sel(tib.idents, srcs, all.idents)
-        t <- resolve.sel(tib.idents, tgts, all.idents)
+        tib <- table.for.group(g)
+        if (is.character(tib)) return(function() placeholder.base(g, tib))
+        if (nrow(tib) == 0) {
+          return(function() placeholder.base(g, "no rows after the cell-type filter"))
+        }
+        s <- resolve.sel(unique(tib$source), srcs, all.idents)
+        t <- resolve.sel(unique(tib$target), tgts, all.idents)
+        filtered <- .liana.apply.cutoff(tib, input$chord.cutoff.col,
+                                        input$chord.cutoff.op, input$chord.cutoff.val)
 
         function() {
           if (s$empty || t$empty) {
             placeholder.base(g, "selection absent in this group")
             return(invisible())
           }
-          if (!"aggregate_rank" %in% colnames(tib)) {
-            placeholder.base(g, "aggregate_rank absent — rerun with >=2 methods")
+          if (is.character(filtered)) {
+            placeholder.base(g, filtered)
             return(invisible())
           }
-          filtered <- tib[tib$aggregate_rank <= alpha, ]
           if (nrow(filtered) == 0) {
-            placeholder.base(g, paste0("no rows passed aggregate_rank <= ", alpha))
+            placeholder.base(g, "no rows passed the cutoff")
             return(invisible())
           }
           tryCatch(
@@ -335,7 +692,7 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       height.in = reactive(input$dot.height),
       filename.stem = reactive(paste0("liana_dot_",
                                       gsub("[^A-Za-z0-9]", "_",
-                                           input$dot.group %||% ""))),
+                                           input$table.group %||% ""))),
       trigger = reactive(input$dot.plot.btn))
 
     make.render.and.download(output, session, "heat.plot", "heat.download",
