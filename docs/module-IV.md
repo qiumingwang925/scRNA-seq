@@ -90,7 +90,7 @@ Compute cell-cell communication with the LIANA.
 2. Select **Species**.
 3. Select **Assay** for data input.
 4. Select **CCC resource** (only choice)
-5. Select **CCCmethods** (multiple choice)
+5. Select **CCC methods** (multiple choice)
 6. **Run LIANA Analysis** for per-group individual resource and multi-method pipeline. Mouse ↔ human ortholog mapping is applied automatically.
 7. **Download Result(`.rds`)** for the next step.
 
@@ -104,12 +104,13 @@ computationally intensive. Running this step on a server or high-performance com
 
 ## Step 5 — Visualize LIANA
 
-Explore the LIANA result across three subtabs. Each panel renders on
-**Generate Plot**.
+Explore the LIANA result across four subtabs. 
 
-1. **CCC Dot Plot** — single group.
-2. **CCC Freq Heatmap** — N-group grid.
-3. **CCC Freq Chord Diagram** — N-group grid.
+1. **CCC Table**
+- select reult from each method or aggregated (only for 2 and more 
+3. **CCC Dot Plot**.
+4. **CCC Freq Heatmap**.
+5. **CCC Freq Chord Diagram**.
 
 > 📷 **Screenshot:** _LIANA CCC dot plot_ — `img/module-IV/05-liana-vis.png`
 
