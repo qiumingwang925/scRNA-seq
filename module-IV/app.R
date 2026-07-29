@@ -26,6 +26,9 @@ load.or.install("biomaRt")
 load.or.install("OmnipathR")
 load.or.install("liana", github.url = "saezlab/liana")
 
+source("patches/liana_call_cellchat.R")
+patch.liana.call.cellchat()
+
 options(shiny.maxRequestSize = 5 * 1024^3)
 
 source("modules/mod_interact_upload.R")

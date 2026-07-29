@@ -18,6 +18,7 @@ Interactive Shiny-based platform for single-cell RNA sequencing analysis, coveri
   - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
 - `module-IV/` — Shiny app for cell-cell communication analysis (CellChat + LIANA)
   - `modules/` — Shiny module files (upload, CellChat/LIANA compute + vis, shared vis helpers)
+  - `patches/` — Runtime fixes applied to upstream packages at app startup
   - `app.R` — Entry point: loads packages, defines UI layout, wires module servers
 - `datasets/` — The platform's only data source; users download demo datasets here (gitignored, bind-mounted into the container)
 - `manuscript_R/` — Standalone R scripts for manuscript figures and analysis (not part of the Shiny app)
@@ -122,6 +123,8 @@ A modular Shiny web application offering two parallel cell-cell communication en
 - `plot.grid` routes heterogeneous panel items through the right render path: ggplots pass straight through, ComplexHeatmap via `grid::grid.grabExpr`, base graphics (CellChat circle/chord/hierarchy, LIANA chord) via `ggplotify::as.ggplot` so CellChat's internal `par(mfrow)` layout doesn't collide with the outer grid
 - Input: annotated Seurat .rds files (output of Module II); the upload also tolerates Module III's slimmed `data`-only export
 - Output: CellChat result list (`.rds`) or LIANA result list (`.rds`)
+- `module-IV/patches/liana_call_cellchat.R` rebinds `liana::call_cellchat` in liana's namespace at startup (`app.R`), fixing a `GetAssayData(slot=)` call that is defunct under SeuratObject >= 5. `liana_wrap` resolves the method by symbol at call time, so the rebind takes effect. It must be re-checked against upstream whenever the liana pin in `docker/install_packages.R` moves
+- The `organism` passed to `call_cellchat` describes the gene symbols in the matrix, not the user's species radio: it is `"human"` whenever the mouse→human conversion ran, `"mouse"` only on the native `MouseConsensus` path
 - Ensembl access (for ortholog conversion) uses `.with.ensembl.hosts` in `R/utils.R`, which tries `dec2021.archive` → `www.ensembl.org` → `useast` → `asia` end-to-end under a single tryCatch and only raises if every host fails
 
 ## Tech Stack

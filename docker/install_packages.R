@@ -51,6 +51,9 @@ github.pkgs <- c(
   CellChat       = "jinworks/CellChat@75253cd0c9e68410e6e721a6d3a0419a1d7e358f",
   liana          = "saezlab/liana@6cab46c54234f861ea176c3de77c4b8aa45ecb3d"
 )
+# NOTE: module-IV/patches/liana_call_cellchat.R rebinds liana::call_cellchat at app
+# startup to fix a SeuratObject >= 5 incompatibility. Re-check that patch against
+# upstream before moving the liana pin above.
 
 # CRAN: install only what's missing. install.packages() warns (not errors) on a failed
 # package and keeps going, so one bad build won't abort the rest.

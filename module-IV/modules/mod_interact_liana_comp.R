@@ -86,6 +86,10 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
 
       needs.conversion <- species == "mouse" && resource != "MouseConsensus"
 
+      # CellChat picks its geneInfo/cofactor tables from this, so it must describe the
+      # symbols in the matrix it receives -- which are human whenever we converted.
+      cellchat.organism <- if (needs.conversion) "human" else species
+
       future::plan("sequential")
       options(future.globals.maxSize = 10 * 1024^3)
 
@@ -185,11 +189,14 @@ mod.interact.liana.comp.server <- function(id, shared.data) {
           status <- setNames(rep(NA_character_, length(methods)), methods)
           for (m in methods) {
             tib <- tryCatch({
+              # liana_defaults() builds every method's parameter list unconditionally,
+              # so cellchat.params is inert for the other methods.
               result <- liana::liana_wrap(
                 sce = sce,
                 method = m,
                 resource = resource,
-                assay.type = "logcounts"
+                assay.type = "logcounts",
+                cellchat.params = list(organism = cellchat.organism)
               )
               if (is.list(result) && !inherits(result, "data.frame") &&
                   !inherits(result, "tbl")) {
