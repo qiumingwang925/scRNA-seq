@@ -346,6 +346,7 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
     group.table <- function(g) {
       res <- liana.data()
       mode <- method.mode()
+      if (!mode$ok) return(mode$msg)
       sel <- input$methods
       per.method <- res$liana.list[[g]]
       if (is.null(per.method)) return(paste0("no result for group '", g, "'"))
