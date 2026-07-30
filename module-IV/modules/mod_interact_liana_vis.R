@@ -636,6 +636,12 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
                       paste0("No rows have a value for '", input$dot.rank, "'.")))
       }
 
+      # call_cellchat's ligand/receptor already hold the complex identifier: CellChat
+      # never decomplexifies, so unlike liana's own pipeline — where ligand is the
+      # min-expressed subunit and ligand.complex the complex — there is no second
+      # column pair for liana_dotplot to unite on.
+      show.complex <- all(c("ligand.complex", "receptor.complex") %in% names(tib.plot))
+
       size.is.pval <- .liana.is.pval.col(input$dot.size)
       col.is.pval  <- .liana.is.pval.col(input$dot.col)
       size.label <- if (size.is.pval) paste0("-log10(", input$dot.size, ")")
@@ -654,7 +660,7 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
           y.label = "Interactions (Ligand -> Receptor)",
           size.label = size.label,
           colour.label = colour.label,
-          show_complex = TRUE,
+          show_complex = show.complex,
           size_range = c(2, 10),
           invert_specificity = size.is.pval,
           invert_magnitude = col.is.pval,
