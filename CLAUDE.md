@@ -120,6 +120,7 @@ A modular Shiny web application offering two parallel cell-cell communication en
 - Compute modules return a reactive **result list** (not a Seurat object) holding per-group results + metadata, plus a `.rds` download
 - Vis modules consume the upstream compute result first, falling back to a user-uploaded `.rds` for standalone use
 - Every vis panel is gated behind a "Generate Plot" button (`shiny::bindEvent`), so parameter tweaks queue up without triggering expensive re-renders
+- The LIANA vis shared panel (cell types + methods) is staged behind an "Apply Selection" button: `applied.idents` / `applied.methods` reactiveVals are the only selection values any downstream consumer reads, so interim selector states never reach `liana_aggregate` or the DT. Apply is disabled while the pending selection is invalid, which keeps the last good view on screen
 - `plot.grid` routes heterogeneous panel items through the right render path: ggplots pass straight through, ComplexHeatmap via `grid::grid.grabExpr`, base graphics (CellChat circle/chord/hierarchy, LIANA chord) via `ggplotify::as.ggplot` so CellChat's internal `par(mfrow)` layout doesn't collide with the outer grid
 - Input: annotated Seurat .rds files (output of Module II); the upload also tolerates Module III's slimmed `data`-only export
 - Output: CellChat result list (`.rds`) or LIANA result list (`.rds`)

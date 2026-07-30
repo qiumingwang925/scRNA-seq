@@ -45,6 +45,29 @@
   ordered[key %in% utils::head(unique(key), n), ]
 }
 
+# How a method selection is turned into a table: one method reads its raw table, several
+# aggregatable ones are combined. Returns list(ok, aggregate, msg); msg is the reason the
+# selection cannot produce a table. Called on both the pending and the applied selection.
+.liana.method.mode <- function(sel) {
+  if (is.null(sel) || length(sel) == 0) {
+    return(list(ok = FALSE, aggregate = FALSE,
+                msg = "Select at least one method."))
+  }
+  if (length(sel) == 1) {
+    return(list(ok = TRUE, aggregate = FALSE, msg = NULL))
+  }
+  blocked <- setdiff(sel, .liana.aggregatable)
+  if (length(blocked) > 0) {
+    return(list(ok = FALSE, aggregate = FALSE, msg = paste0(
+      "Cannot aggregate ", paste(blocked, collapse = " and "), ". ",
+      "liana_aggregate only supports ",
+      paste(.liana.aggregatable, collapse = ", "),
+      " — select ", paste(blocked, collapse = " or "),
+      " on its own to see its raw table, or remove it from the selection.")))
+  }
+  list(ok = TRUE, aggregate = TRUE, msg = NULL)
+}
+
 # Returns the filtered table, or a character message explaining why it could not filter.
 .liana.apply.cutoff <- function(tib, col, op, value) {
   if (is.null(col) || !nzchar(col)) return("choose a cutoff column")
@@ -96,6 +119,14 @@ mod.interact.liana.vis.ui <- function(id) {
                        "cytotalk and call_cellchat can only be viewed on their own."),
               uiOutput(ns("method.msg"))
             )
+          ),
+          hr(),
+          fluidRow(
+            column(3,
+              actionButton(ns("apply.selection"), "Apply Selection",
+                           class = "btn-success", style = "width:100%")
+            ),
+            column(9, uiOutput(ns("apply.msg")))
           )
         )
       )
@@ -255,11 +286,19 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       sort(all[!is.na(all) & nzchar(all)])
     })
 
+    # The shared selection is staged: the selectors are free to hold any interim state
+    # while the user edits them, and only these two values — updated on Apply — reach
+    # the table, the aggregation cache, and the plot thunks. Without the stage, every
+    # click re-ran liana_aggregate, re-rendered the DT, and reset the per-tab
+    # source/target selectors, none of which the user had asked for yet.
+    applied.methods <- reactiveVal(NULL)
+    applied.idents <- reactiveVal(NULL)
+
     # Kept cell types in ident.choices() order rather than click order.
     subset.universe <- reactive({
       all.idents <- ident.choices()
       req(all.idents)
-      intersect(all.idents, input$subset.idents %||% all.idents)
+      intersect(all.idents, applied.idents() %||% all.idents)
     })
 
     # Only methods that succeeded in *every* group are selectable: aggregating over
@@ -275,12 +314,21 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       setdiff(Reduce(union, lapply(res$liana.list, names)), method.choices())
     })
 
+    # Seeding the applied values alongside the selectors means a freshly loaded result
+    # renders straight away instead of waiting for a first Apply click.
     observe({
       methods <- method.choices()
       req(length(methods) > 0)
       default <- intersect(methods, .liana.aggregatable)
       if (length(default) < 2) default <- methods[1]
       updateSelectInput(session, "methods", choices = methods, selected = default)
+      applied.methods(default)
+    })
+
+    observe({
+      choices <- ident.choices()
+      req(choices)
+      applied.idents(choices)
     })
 
     observe({
@@ -300,36 +348,54 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
     wire.cell.type.selector(input, session, "chord.targets", subset.universe,
                             selected.all = TRUE)
 
-    method.mode <- reactive({
-      sel <- input$methods
-      if (is.null(sel) || length(sel) == 0) {
-        return(list(ok = FALSE, aggregate = FALSE,
-                    msg = "Select at least one method in the panel above."))
+    method.mode <- reactive(.liana.method.mode(applied.methods()))
+
+    # Validation is judged on the *pending* selection so the user learns an interim
+    # state is unusable while editing, rather than after committing to it.
+    apply.blocked <- reactive({
+      pending <- .liana.method.mode(input$methods)
+      if (!pending$ok) return(pending$msg)
+      if (length(input$subset.idents %||% character(0)) == 0) {
+        return("Select at least one cell type.")
       }
-      if (length(sel) == 1) {
-        return(list(ok = TRUE, aggregate = FALSE, msg = NULL))
-      }
-      blocked <- setdiff(sel, .liana.aggregatable)
-      if (length(blocked) > 0) {
-        return(list(ok = FALSE, aggregate = FALSE, msg = paste0(
-          "Cannot aggregate ", paste(blocked, collapse = " and "), ". ",
-          "liana_aggregate only supports ",
-          paste(.liana.aggregatable, collapse = ", "),
-          " — select ", paste(blocked, collapse = " or "),
-          " on its own to see its raw table, or remove it from the selection.")))
-      }
-      list(ok = TRUE, aggregate = TRUE, msg = NULL)
+      NULL
+    })
+
+    pending.changes <- reactive({
+      !setequal(input$methods %||% character(0),
+                applied.methods() %||% character(0)) ||
+      !setequal(input$subset.idents %||% character(0),
+                applied.idents() %||% character(0))
+    })
+
+    observe({
+      shinyjs::toggleState(
+        "apply.selection",
+        condition = is.null(apply.blocked()) && isTRUE(pending.changes()))
+    })
+
+    observeEvent(input$apply.selection, {
+      applied.methods(input$methods)
+      applied.idents(input$subset.idents)
     })
 
     output$method.msg <- renderUI({
-      mode <- method.mode()
       partial <- method.partial()
-      tagList(
-        if (!is.null(mode$msg)) tags$p(class = "text-danger", mode$msg),
-        if (length(partial) > 0) tags$p(class = "text-warning", paste0(
-          "Not selectable — succeeded in some groups only: ",
-          paste(partial, collapse = ", "), "."))
-      )
+      if (length(partial) == 0) return(NULL)
+      tags$p(class = "text-warning", paste0(
+        "Not selectable — succeeded in some groups only: ",
+        paste(partial, collapse = ", "), "."))
+    })
+
+    output$apply.msg <- renderUI({
+      blocked <- apply.blocked()
+      if (!is.null(blocked)) return(tags$p(class = "text-danger", blocked))
+      if (isTRUE(pending.changes())) {
+        tags$p(class = "text-info",
+               "Selection changed — click Apply Selection to update every tab.")
+      } else {
+        tags$p(class = "text-muted", "Every tab matches the current selection.")
+      }
     })
 
     # ---------- Table construction ----------
@@ -347,7 +413,7 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       res <- liana.data()
       mode <- method.mode()
       if (!mode$ok) return(mode$msg)
-      sel <- input$methods
+      sel <- applied.methods()
       per.method <- res$liana.list[[g]]
       if (is.null(per.method)) return(paste0("no result for group '", g, "'"))
       missing <- setdiff(sel, names(per.method))
@@ -467,8 +533,8 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       cat("Group:    ", input$table.group, "\n")
       cat("Table:    ",
           if (mode$aggregate) paste0("liana_aggregate of ",
-                                     paste(sort(input$methods), collapse = ", "))
-          else paste0(input$methods, " (raw)"), "\n")
+                                     paste(sort(applied.methods()), collapse = ", "))
+          else paste0(applied.methods(), " (raw)"), "\n")
       cat("Rows:     ", nrow(tib), " (after the cell-type filter)\n", sep = "")
       cat("Selected: ", length(input$ccc.table_rows_selected %||% integer(0)), "\n")
     })
@@ -496,7 +562,7 @@ mod.interact.liana.vis.server <- function(id, liana.input) {
       filename = function() {
         mode <- method.mode()
         tag <- if (isTRUE(mode$aggregate)) "aggregated"
-               else paste(input$methods, collapse = "_")
+               else paste(applied.methods(), collapse = "_")
         paste0("liana_table_",
                gsub("[^A-Za-z0-9]", "_", input$table.group %||% ""), "_",
                tag, "_", Sys.Date(), ".csv")
