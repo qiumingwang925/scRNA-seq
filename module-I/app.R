@@ -19,6 +19,7 @@ load.or.install("SingleCellExperiment")
 load.or.install("DT")
 
 options(shiny.maxRequestSize = 10 * 1024^3)
+options(future.globals.maxSize = 10 * 1024^3) 
 
 # biomarker database
 #markers <- read.xlsx("data/biomarkers_mouse.xlsx")
