@@ -65,7 +65,7 @@ mod.integrate.server <- function(id, shared.data) {
 
     processed.obj <- eventReactive(input$run.flow, {
       req(shared.data())
-      options(future.globals.maxSize = 10 * 1024^3)
+      #options(future.globals.maxSize = 10 * 1024^3)
 
       # Start with clean object
       raw.obj <- shared.data()
