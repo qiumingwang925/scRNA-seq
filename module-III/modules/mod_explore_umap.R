@@ -84,7 +84,7 @@ mod.explore.umap.ui <- function(id) {
             verbatimTextOutput(ns("cell.stat.box"))
           ),
           mainPanel(width = 8,
-            plotlyOutput(ns("umap.interactive"), height = "600px")
+            plotlyOutput(ns("umap.interactive"), height = "800px")
           )
         )
       ),
@@ -114,7 +114,7 @@ mod.explore.umap.ui <- function(id) {
             downloadButton(ns("download.highlight"), "Download Figure", class = "btn-success")
           ),
           mainPanel(width = 8,
-            plotOutput(ns("umap.static"), height = "600px")
+            plotOutput(ns("umap.static"), height = "800px")
           )
         )
       ),
@@ -156,7 +156,7 @@ mod.explore.umap.ui <- function(id) {
             downloadButton(ns("download.expr"), "Download Figure", class = "btn-success")
           ),
           mainPanel(width = 8,
-            plotOutput(ns("plot.expr"), height = "600px")
+            plotOutput(ns("plot.expr"), height = "800px")
           )
         )
       )

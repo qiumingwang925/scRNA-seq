@@ -28,7 +28,8 @@ mod.explore.dot.ui <- function(id) {
         downloadButton(ns("download.dot"), "Download Figure", class = "btn-success")
       ),
       mainPanel(width = 8,
-        plotOutput(ns("plot.dot"), height = "600px")
+        plotOutput(ns("plot.dot"), height = "800px")
+        #plotOutput(ns("plot.dot"))
       )
     )
   )
@@ -143,7 +144,8 @@ build.split.dot.plot <- function(obj, genes, split.by) {
   # Combine cell type + split identity into a single y-axis label
   # Interleaved order (bottom to top): IM group1, IM group2, cMono group1, cMono group2, ...
   ct.levels <- levels(Idents(obj))
-  split.levels <- unique(stats.df$split.id)
+  #split.levels <- unique(stats.df$split.id) 
+  split.levels <- sort(unique(obj[[split.by]][,1])) # to match the color order in VlnPlot
   y.levels <- unlist(lapply(rev(ct.levels), function(ct) {
     paste(ct, split.levels, sep = " ")
   }))

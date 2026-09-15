@@ -18,6 +18,7 @@ mod.explore.violin.ui <- function(id) {
         textInput(ns("gene.input"), "Gene(s) (comma-separated)",
                   placeholder = "e.g. Cd68, Cx3cr1, Ccr2"),
         checkboxInput(ns("flip"), "Flip Axes", value = FALSE),
+        checkboxInput(ns("stack"), "Stack Genes", value = FALSE),
         selectInput(ns("split.by"), "Split By (optional):",
                     choices = c("None"), selected = "None"),
         actionButton(ns("run.vln"), "Generate Violin Plot",
@@ -29,7 +30,8 @@ mod.explore.violin.ui <- function(id) {
         downloadButton(ns("download.vln"), "Download Figure", class = "btn-success")
       ),
       mainPanel(width = 8,
-        plotOutput(ns("plot.vln"), height = "600px")
+        plotOutput(ns("plot.vln"), height = "800px")
+        #plotOutput(ns("plot.vln"))
       )
     )
   )
@@ -82,14 +84,26 @@ mod.explore.violin.server <- function(id, shared.data) {
       validate(need(length(idents.selected) > 0, "Please select at least one cell type."))
       obj <- subset(obj, idents = idents.selected)
 
-      split.by <- if (input$split.by == "None") NULL else input$split.by
+      split.id <- if (input$split.by == "None") NULL else input$split.by
+      
+      # add color to over-write seurat color for split.by
+      split.colors <- if (input$split.by == "None") {
+        NULL
+        } else {
+        split.levels <- sort(unique(obj[[split.id]][,1]))
+        split.colors <- scales::hue_pal()(length(split.levels))
+        names(split.colors) <- split.levels
+        split.colors
+      }
+      
 
       withProgress(message = "Generating violin plot...", value = 0.5, {
         if (length(genes) == 1) {
-          p <- VlnPlot(obj, features = genes, split.by = split.by)
+          p <- VlnPlot(obj, features = genes, 
+                       split.by = split.id, cols = split.colors)
         } else {
-          p <- VlnPlot(obj, features = genes, stack = TRUE,
-                       flip = input$flip, split.by = split.by)
+          p <- VlnPlot(obj, features = genes, stack = input$stack,
+                       flip = input$flip, split.by = split.id, cols = split.colors)
         }
         incProgress(0.5, detail = "Done")
         p
