@@ -21,7 +21,8 @@ load.or.install("cluster")  #ASW
 load.or.install("lisi", github.url = "immunogenomics/lisi") #LISI
 load.or.install("Matrix")   #Graph LISI
 
-options(shiny.maxRequestSize = 10 * 1024^3)
+options(shiny.maxRequestSize = 20 * 1024^3)
+options(future.globals.maxSize = 50 * 1024^3) 
 
 source("../R/mod_save_config.R")
 source("modules/mod_upload_merge.R")
