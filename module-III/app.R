@@ -17,6 +17,7 @@ load.or.install("DT")
 load.or.install("presto", github.url = "immunogenomics/presto")
 load.or.install("enrichR")
 load.or.install("openxlsx")
+load.or.install("pheatmap")
 
 options(shiny.maxRequestSize = 5 * 1024^3)
 

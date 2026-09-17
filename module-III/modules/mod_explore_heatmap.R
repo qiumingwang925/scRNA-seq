@@ -6,6 +6,11 @@ mod.explore.heatmap.ui <- function(id) {
   tabPanel("Heatmap",
     sidebarLayout(
       sidebarPanel(width = 4,
+        radioButtons(ns("heatmap.label"),  "Heatmap Label:",
+                     choices = c("Cell Types" = "ct.label",
+                                 "Other Metadata Column" = "other.label"),
+                     selected = "ct.label"
+                     ),
         selectInput(ns("select.idents"), "Cell Type(s):",
                     choices = NULL, multiple = TRUE),
         fluidRow(
@@ -38,7 +43,8 @@ mod.explore.heatmap.ui <- function(id) {
         hr(),
         selectInput(ns("vars.to.regress"), "Variables to Regress (optional):",
                     choices = NULL, multiple = TRUE),
-        numericInput(ns("n.cells"), "Max Cells in Heatmap", value = 500, min = 50, max = 5000),
+        # disabled max cells in heatmap
+        #numericInput(ns("n.cells"), "Max Cells in Heatmap", value = 500, min = 50, max = 5000),
         actionButton(ns("run.heatmap"), "Generate Heatmap",
                      class = "btn-success", style = "width:100%"),
         hr(),
@@ -65,13 +71,30 @@ mod.explore.heatmap.server <- function(id, shared.data) {
                         choices = ident.levels, selected = ident.levels)
       updateSelectInput(session, "vars.to.regress",
                         choices = vars.to.regress.choices(obj))
-      updateSelectInput(session, "subset.meta.col",
-                        choices = c("None", split.by.choices(obj)), selected = "None")
+      
+      #updateSelectInput(session, "subset.meta.col",
+                        #choices = c("None", split.by.choices(obj)), selected = "None")
+      
+      # ===== CHANGED: determine choices based on heatmap.label =====
+      if (input$heatmap.label == "other.label") {
+        subset.meta.choices <- split.by.choices(obj)       # No "None"
+      } else {
+        subset.meta.choices <- c("None", split.by.choices(obj))
+      }
+      
+      updateSelectInput(
+        session, "subset.meta.col",
+        choices = subset.meta.choices,                     # CHANGED
+        selected = subset.meta.choices[1]                  # CHANGED
+      )
+      # ===== END CHANGE =====
     })
 
     # Cascade: metadata column -> its values
     observeEvent(input$subset.meta.col, {
-      req(shared.data(), input$subset.meta.col != "None")
+      req(shared.data(), 
+          input$subset.meta.col, # added safety check
+          input$subset.meta.col != "None")
       vals <- unique(as.character(shared.data()@meta.data[[input$subset.meta.col]]))
       updateSelectInput(session, "subset.meta.vals", choices = vals, selected = vals)
     })
@@ -97,6 +120,7 @@ mod.explore.heatmap.server <- function(id, shared.data) {
       idents.selected <- input$select.idents
       validate(need(length(idents.selected) > 0, "Please select at least one cell type."))
       obj <- subset(obj, idents = idents.selected)
+      
 
       if (input$subset.meta.col != "None" && length(input$subset.meta.vals) > 0) {
         meta.mask <- obj@meta.data[[input$subset.meta.col]] %in% input$subset.meta.vals
@@ -143,13 +167,52 @@ mod.explore.heatmap.server <- function(id, shared.data) {
           validate(need(FALSE, "ScaleData failed. Check vars.to.regress selection."))
         })
 
+        # ------ disabled max cells in heatmap ---------------------
         # Sample cells
-        n.cells <- min(input$n.cells, ncol(obj))
-        sampled.cells <- sample(colnames(obj), n.cells)
+        #n.cells <- min(input$n.cells, ncol(obj))
+        #sampled.cells <- sample(colnames(obj), n.cells)
+        # ------ End -----------------------------------------------
 
         incProgress(0.4, detail = "Rendering heatmap")
-        DoHeatmap(obj, features = features, cells = sampled.cells,
-                  size = 4, angle = 90)
+        # ------ Using pheatmap instead of the seurat --------------
+        #DoHeatmap(obj, features = features, cells = sampled.cells,
+                  #size = 4, angle = 90)
+        # get the scaled data
+        mat <- GetAssayData(
+          obj,
+          assay = DefaultAssay(obj),
+          layer = "scale.data"
+        )
+        
+        # Order cells by group
+        cell.label <- if (input$heatmap.label == "ct.label") {
+          obj$manual_annotation
+        }else{
+          obj[[input$subset.meta.col]][,1]
+        }
+        
+        cell.order <- order(cell.label)
+        mat <- mat[, cell.order, drop = FALSE]
+        
+        
+        # Column annotation
+        annotation_col <- data.frame(Label = cell.label[cell.order])
+        rownames(annotation_col) <- colnames(mat)
+        
+        pheatmap(
+          mat = mat,
+          scale = "none",                # Scale only selected genes for this plot
+          cluster_rows = TRUE,           # Hierarchical clustering of genes (Y-axis)
+          cluster_cols = FALSE,          # Preserve cell grouping on the X-axis
+          annotation_col = annotation_col,
+          show_colnames = FALSE,
+          fontsize_row = 9,
+          border_color = NA,
+          color = colorRampPalette(c("#2166AC", "white", "#B2182B"))(100),
+          breaks = seq(-2.5, 2.5, length.out = 101),
+        )
+        
+        
       })
     })
 
