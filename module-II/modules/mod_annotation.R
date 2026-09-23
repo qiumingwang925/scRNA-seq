@@ -1,6 +1,12 @@
 mod.annotation.ui <- function(id) {
   ns <- NS(id)
   tabPanel("Visual Inspection & Annotation",
+           wellPanel(
+             fluidRow(
+               column(4, strong("Upload Processed Seurat Object(.rds)")),
+               column(4, fileInput(ns("seurat_file"), NULL, accept = c(".rds")))
+             )
+           ),
            sidebarLayout(
              sidebarPanel(
                width = 4,
@@ -93,6 +99,19 @@ mod.annotation.server <- function(id, shared.data) {
       current.obj(shared.data())
     })
     
+    # Handle direct object upload (bypasses the upstream pipeline)
+    observeEvent(input$seurat_file, {
+      req(input$seurat_file)
+      withProgress(message = "Loading Seurat object...", value = 0, {
+        srt <- readRDS(input$seurat_file$datapath)
+        if (!"manual_annotation" %in% colnames(srt@meta.data)) {
+          srt$manual_annotation <- "Unlabeled"
+        }
+        current.obj(srt)
+        setProgress(1)
+      })
+    })
+
     # Update UI choices based on active object
     observeEvent(list(current.obj(), input$display.mode), {
       # Determine which object we are looking at
