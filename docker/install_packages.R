@@ -27,7 +27,7 @@ cran.pkgs <- c(
   "ggplot2", "tidyverse", "plotly", "DT", "patchwork", "scales",
   "ggnewscale", "ggpubr", "ggplotify", "ggalluvial", "future",
   "NMF", "cluster", "Matrix", "digest", "entropy", "harmony",
-  "openxlsx", "enrichR", "remotes",
+  "openxlsx", "enrichR", "pheatmap", "remotes",
   "Seurat", "SeuratObject"
 )
 
