@@ -43,8 +43,6 @@ mod.explore.heatmap.ui <- function(id) {
         hr(),
         selectInput(ns("vars.to.regress"), "Variables to Regress (optional):",
                     choices = NULL, multiple = TRUE),
-        # disabled max cells in heatmap
-        #numericInput(ns("n.cells"), "Max Cells in Heatmap", value = 500, min = 50, max = 5000),
         actionButton(ns("run.heatmap"), "Generate Heatmap",
                      class = "btn-success", style = "width:100%"),
         hr(),
@@ -63,37 +61,36 @@ mod.explore.heatmap.ui <- function(id) {
 mod.explore.heatmap.server <- function(id, shared.data) {
   moduleServer(id, function(input, output, session) {
 
-    observe({
-      req(shared.data())
+    observeEvent(shared.data(), {
       obj <- shared.data()
       ident.levels <- levels(obj)
       updateSelectInput(session, "select.idents",
                         choices = ident.levels, selected = ident.levels)
       updateSelectInput(session, "vars.to.regress",
                         choices = vars.to.regress.choices(obj))
-      
-      #updateSelectInput(session, "subset.meta.col",
-                        #choices = c("None", split.by.choices(obj)), selected = "None")
-      
-      # ===== CHANGED: determine choices based on heatmap.label =====
+    })
+
+    observe({
+      req(shared.data())
+      obj <- shared.data()
       if (input$heatmap.label == "other.label") {
         subset.meta.choices <- split.by.choices(obj)       # No "None"
       } else {
         subset.meta.choices <- c("None", split.by.choices(obj))
       }
-      
+
+      current.meta.col <- isolate(input$subset.meta.col)
       updateSelectInput(
         session, "subset.meta.col",
-        choices = subset.meta.choices,                     # CHANGED
-        selected = subset.meta.choices[1]                  # CHANGED
+        choices = subset.meta.choices,
+        selected = if (isTRUE(current.meta.col %in% subset.meta.choices)) current.meta.col else subset.meta.choices[1]
       )
-      # ===== END CHANGE =====
     })
 
     # Cascade: metadata column -> its values
     observeEvent(input$subset.meta.col, {
       req(shared.data(), 
-          input$subset.meta.col, # added safety check
+          input$subset.meta.col,
           input$subset.meta.col != "None")
       vals <- unique(as.character(shared.data()@meta.data[[input$subset.meta.col]]))
       updateSelectInput(session, "subset.meta.vals", choices = vals, selected = vals)
@@ -167,16 +164,7 @@ mod.explore.heatmap.server <- function(id, shared.data) {
           validate(need(FALSE, "ScaleData failed. Check vars.to.regress selection."))
         })
 
-        # ------ disabled max cells in heatmap ---------------------
-        # Sample cells
-        #n.cells <- min(input$n.cells, ncol(obj))
-        #sampled.cells <- sample(colnames(obj), n.cells)
-        # ------ End -----------------------------------------------
-
         incProgress(0.4, detail = "Rendering heatmap")
-        # ------ Using pheatmap instead of the seurat --------------
-        #DoHeatmap(obj, features = features, cells = sampled.cells,
-                  #size = 4, angle = 90)
         # get the scaled data
         mat <- GetAssayData(
           obj,
@@ -210,18 +198,22 @@ mod.explore.heatmap.server <- function(id, shared.data) {
           border_color = NA,
           color = colorRampPalette(c("#2166AC", "white", "#B2182B"))(100),
           breaks = seq(-2.5, 2.5, length.out = 101),
+          silent = TRUE
         )
         
         
       })
     })
 
-    output$plot.heatmap <- renderPlot({ plot.heatmap() }, res = 96)
+    output$plot.heatmap <- renderPlot({
+      grid::grid.newpage()
+      grid::grid.draw(plot.heatmap()$gtable)
+    }, res = 96)
 
     output$download.heatmap <- downloadHandler(
       filename = function() { "heatmap.pdf" },
       content = function(file) {
-        ggsave(file, plot = plot.heatmap(),
+        ggsave(file, plot = plot.heatmap()$gtable,
                width = input$fig.w, height = input$fig.h)
       }
     )
