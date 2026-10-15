@@ -58,20 +58,20 @@ mod.explore.enrich.ui <- function(id) {
   )
 }
 
-mod.explore.enrich.server <- function(id, de.result) {
+mod.explore.enrich.server <- function(id, de.filtered) {
   moduleServer(id, function(input, output, session) {
 
     ea.table <- eventReactive(input$run.ea, {
-      req(de.result())
-      validate(need(nrow(de.result()) > 0, "No DE genes available. Run DE analysis first."))
+      req(de.filtered())
+      validate(need(nrow(de.filtered()) > 0, "No DE genes available. Run DE analysis first."))
 
       withProgress(message = "Running enrichment analysis...", value = 0.3, {
         tryCatch({
-          genes <- de.result()$gene
+          genes <- de.filtered()$gene
           result <- enrichR::enrichr(genes, input$database)[[1]]
           incProgress(0.5, detail = "Filtering results")
 
-          result <- result %>% filter(P.value < 0.05)
+          result <- result %>% filter(Adjusted.P.value < 0.05)
           validate(need(nrow(result) > 0, "No significant enrichment results (P < 0.05)."))
 
           result$P.value <- as.numeric(format(result$P.value, scientific = TRUE, digits = 3))

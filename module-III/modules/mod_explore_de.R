@@ -158,6 +158,6 @@ mod.explore.de.server <- function(id, shared.data) {
       }
     )
 
-    return(de.result)
+    return(de.filtered) 
   })
 }

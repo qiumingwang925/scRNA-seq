@@ -49,8 +49,8 @@ server <- function(input, output, session) {
   mod.explore.violin.server("violin", shared.data = uploaded.seurat)
   mod.explore.dot.server("dot", shared.data = uploaded.seurat)
   mod.explore.heatmap.server("heatmap", shared.data = uploaded.seurat)
-  de.result <- mod.explore.de.server("de", shared.data = uploaded.seurat)
-  mod.explore.enrich.server("enrich", de.result = de.result)
+  de.filtered <- mod.explore.de.server("de", shared.data = uploaded.seurat)
+  mod.explore.enrich.server("enrich", de.filtered = de.filtered)
 }
 
 shinyApp(ui, server)
